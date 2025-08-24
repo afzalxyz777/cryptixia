@@ -11,7 +11,7 @@ contract MarketplaceTest is Test {
 
     // ✅ switched to makeAddr() so they are payable EOA addresses
     address alice = makeAddr("alice");
-    address bob   = makeAddr("bob");
+    address bob = makeAddr("bob");
 
     function setUp() public {
         agent = new AgentNFT();

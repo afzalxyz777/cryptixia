@@ -11,7 +11,7 @@ contract BreedingTest is Test {
 
     // ✅ use normal payable addresses instead of 0x1/0x2
     address alice = makeAddr("alice");
-    address bob   = makeAddr("bob");
+    address bob = makeAddr("bob");
 
     function setUp() public {
         agent = new AgentNFT();
