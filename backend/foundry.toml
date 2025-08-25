@@ -1,0 +1,7 @@
+[profile.default]
+src = "contracts" # your contracts folder inside backend
+out = "out"       # compiled artifacts will go to backend/out
+tests = "test"    # add this line for your test folder
+libs = ["lib"]    # your libraries (forge-std, OpenZeppelin) inside backend/lib
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
