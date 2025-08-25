@@ -1,0 +1,122 @@
+[
+  {
+    "id": "memory_1",
+    "agent_id": "agent_x_001",
+    "text": "Agent X is a master negotiator, skilled in persuasion and conflict resolution.",
+    "tags": ["trait", "negotiation", "diplomacy"],
+    "timestamp": "2025-08-25T10:00:00Z",
+    "source": "manual-entry"
+  },
+  {
+    "id": "memory_2",
+    "agent_id": "agent_x_001",
+    "text": "Agent X negotiated a ceasefire between rival guilds in 2023.",
+    "tags": ["event", "diplomacy", "achievement"],
+    "timestamp": "2023-11-12T00:00:00Z",
+    "source": "lore-database"
+  },
+  {
+    "id": "memory_3",
+    "agent_id": "agent_x_001",
+    "text": "Recent success: secured an alliance by brokering a high-stakes deal in 2025.",
+    "tags": ["event", "success", "diplomacy"],
+    "timestamp": "2025-07-20T00:00:00Z",
+    "source": "simulation-log"
+  },
+  {
+    "id": "memory_4",
+    "agent_id": "agent_x_001",
+    "text": "Known weakness: avoids direct combat, relies on diplomacy instead.",
+    "tags": ["weakness", "combat-avoidance", "diplomacy"],
+    "timestamp": "2025-08-10T00:00:00Z",
+    "source": "manual-entry"
+  },
+  {
+    "id": "memory_5",
+    "agent_id": "agent_x_001",
+    "text": "Agent X maintains strong ties with the Cryptixia Council, often leveraging their influence in negotiations.",
+    "tags": ["trait", "connections", "diplomacy"],
+    "timestamp": "2025-08-15T00:00:00Z",
+    "source": "manual-entry"
+  },
+  {
+    "id": "memory_6",
+    "agent_id": "agent_x_001",
+    "text": "Agent X studied ancient treaties of the Old World to refine his negotiation strategies.",
+    "tags": ["background", "knowledge", "training"],
+    "timestamp": "2022-06-01T00:00:00Z",
+    "source": "archives"
+  },
+  {
+    "id": "memory_7",
+    "agent_id": "agent_x_001",
+    "text": "Rumored to have once outwitted a rogue AI in a debate about trade ethics.",
+    "tags": ["rumor", "intelligence", "negotiation"],
+    "timestamp": "2024-03-15T00:00:00Z",
+    "source": "rumors"
+  },
+  {
+    "id": "memory_8",
+    "agent_id": "agent_x_001",
+    "text": "Prefers dialogue over coercion, believing long-term peace comes from mutual respect.",
+    "tags": ["trait", "philosophy", "diplomacy"],
+    "timestamp": "2025-01-05T00:00:00Z",
+    "source": "manual-entry"
+  },
+  {
+    "id": "memory_9",
+    "agent_id": "agent_x_001",
+    "text": "Agent X was instrumental in drafting the Neutral Zones Accord of 2024.",
+    "tags": ["event", "achievement", "treaty"],
+    "timestamp": "2024-08-22T00:00:00Z",
+    "source": "council-records"
+  },
+  {
+    "id": "memory_10",
+    "agent_id": "agent_x_001",
+    "text": "Weakness: tends to overestimate his opponents’ willingness to compromise.",
+    "tags": ["weakness", "misjudgment", "psychology"],
+    "timestamp": "2025-05-11T00:00:00Z",
+    "source": "manual-entry"
+  },
+  {
+    "id": "memory_11",
+    "agent_id": "agent_x_001",
+    "text": "Maintains a secret alliance with the Shadow Guild, though its reliability is uncertain.",
+    "tags": ["relationship", "alliance", "secrecy"],
+    "timestamp": "2025-02-14T00:00:00Z",
+    "source": "intelligence-briefing"
+  },
+  {
+    "id": "memory_12",
+    "agent_id": "agent_x_001",
+    "text": "His diplomatic style is methodical, often employing silence as a negotiation tactic.",
+    "tags": ["trait", "strategy", "negotiation"],
+    "timestamp": "2025-06-09T00:00:00Z",
+    "source": "manual-entry"
+  },
+  {
+    "id": "memory_13",
+    "agent_id": "agent_x_001",
+    "text": "Once mediated a resource-sharing pact between three rival guilds that had been feuding for decades.",
+    "tags": ["event", "mediation", "achievement"],
+    "timestamp": "2023-09-18T00:00:00Z",
+    "source": "guild-records"
+  },
+  {
+    "id": "memory_14",
+    "agent_id": "agent_x_001",
+    "text": "Despite his influence, some factions distrust Agent X for being too close to the Council.",
+    "tags": ["weakness", "reputation", "politics"],
+    "timestamp": "2025-08-01T00:00:00Z",
+    "source": "rumors"
+  },
+  {
+    "id": "memory_15",
+    "agent_id": "agent_x_001",
+    "text": "Agent X’s ultimate vision is to establish a lasting federation of Cryptixia’s guilds.",
+    "tags": ["goal", "vision", "future"],
+    "timestamp": "2025-08-25T00:00:00Z",
+    "source": "manual-entry"
+  }
+]
