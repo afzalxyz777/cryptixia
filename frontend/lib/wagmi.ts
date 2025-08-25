@@ -1,26 +1,32 @@
-import { configureChains, createClient } from 'wagmi'
-import { mainnet, polygon, optimism, arbitrum, avalancheFuji } from 'wagmi/chains'
-import { publicProvider } from 'wagmi/providers/public'
-import { getDefaultWallets } from '@rainbow-me/rainbowkit'
+// frontend/lib/wagmi.ts
+import { configureChains, createClient } from 'wagmi';
+import { avalancheFuji } from 'wagmi/chains';
+import { publicProvider } from 'wagmi/providers/public';
+import { jsonRpcProvider } from 'wagmi/providers/jsonRpc';
+import { getDefaultWallets } from '@rainbow-me/rainbowkit';
 
-// 1. Configure chains (added avalancheFuji 👇)
-const { chains, provider } = configureChains(
-  [mainnet, polygon, optimism, arbitrum, avalancheFuji],
-  [publicProvider()]
-)
+const { chains, provider, webSocketProvider } = configureChains(
+  [avalancheFuji],
+  [
+    jsonRpcProvider({
+      rpc: () => ({
+        http: process.env.NEXT_PUBLIC_ALCHEMY_API as string, // ✅ from .env.local
+      }),
+    }),
+    publicProvider(),
+  ]
+);
 
-// 2. Setup connectors
 const { connectors } = getDefaultWallets({
   appName: 'Cryptixia',
-  chains,
-})
+  chains, // ✅ wagmi v0.12 requires this
+});
 
-// 3. Create wagmi client
 export const wagmiClient = createClient({
   autoConnect: true,
   connectors,
   provider,
-})
+  webSocketProvider,
+});
 
-// 4. Export chains so RainbowKitProvider can use them
-export { chains }
+export { chains };
