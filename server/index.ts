@@ -1,24 +1,21 @@
-import express from "express";
-import dotenv from "dotenv";
-import pinMetadataRouter from "./api/pinMetadata";
+import express from "express"
+import dotenv from "dotenv"
+import cors from "cors"
 
-// Load environment variables from .env.local
-dotenv.config({ path: ".env.local" });
+// Load env
+dotenv.config({ path: ".env.local" })
 
-const app = express();
-const PORT = process.env.PORT || 3001;
+const app = express()
 
-// Middleware to parse JSON
-app.use(express.json());
+// Allow frontend (localhost:3000) to call backend (localhost:3001)
+app.use(cors())
+app.use(express.json())
 
-// Routes
-app.use("/api/pinMetadata", pinMetadataRouter);
+// Import routes
+import pinMetadata from "./api/pinMetadata"
+app.use("/api/pinMetadata", pinMetadata)
 
-app.get("/", (req, res) => {
-  res.send("✅ Cryptixia server is running");
-});
-
-// Start server
+const PORT = 3001
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
+  console.log(`Server running on http://localhost:${PORT}`)
+})
