@@ -1,9 +1,9 @@
+// server/index.ts
 import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
-
-import pinMetadataRouter from "./api/pinMetadata"
-import initAgentProfileRouter from "./api/initAgentProfile"
+import pinMetadata from "./api/pinMetadata"
+import initAgentProfile from "./api/initAgentProfile"   // ✅ import
 
 dotenv.config({ path: ".env.local" })
 
@@ -11,11 +11,10 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
-// ✅ API routes
-app.use("/api/pinMetadata", pinMetadataRouter)
-app.use("/api/initAgentProfile", initAgentProfileRouter)
+// ✅ register API routes
+app.use("/api/pinMetadata", pinMetadata)
+app.use("/api/initAgentProfile", initAgentProfile)
 
-const PORT = 3001
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`)
+app.listen(3001, () => {
+  console.log("Server running on http://localhost:3001")
 })
