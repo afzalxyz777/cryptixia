@@ -12,11 +12,12 @@ router.post("/", async (req: Request, res: Response) => {
       return res.status(500).json({ error: "Missing Pinata API keys in .env.local" })
     }
 
-    const metadata = req.body
+    // Placeholder empty memory store
+    const emptyMemory = { messages: [] }
 
-    const response = await axios.post(
+    const pin = await axios.post(
       "https://api.pinata.cloud/pinning/pinJSONToIPFS",
-      metadata,
+      emptyMemory,
       {
         headers: {
           "Content-Type": "application/json",
@@ -26,14 +27,14 @@ router.post("/", async (req: Request, res: Response) => {
       }
     )
 
-    const data = response.data as { IpfsHash: string }
+    const data = pin.data as { IpfsHash: string }
     const cid = data.IpfsHash
-    const gatewayUrl = `https://gateway.pinata.cloud/ipfs/${cid}`
+    const memory_uri = `ipfs://${cid}`
 
-    return res.json({ cid, gatewayUrl })
+    return res.json({ memory_uri })
   } catch (error: any) {
-    console.error("Error pinning metadata:", error.response?.data || error.message)
-    return res.status(500).json({ error: "Failed to pin metadata" })
+    console.error("Error initializing agent profile:", error.response?.data || error.message)
+    return res.status(500).json({ error: "Failed to init agent profile" })
   }
 })
 

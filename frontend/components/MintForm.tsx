@@ -1,32 +1,10 @@
 import { useState } from "react"
-import { useAccount, useContractWrite } from "wagmi"
-
-// Contract details (replace with actual later)
-const contractAddress = "0xYourContractAddressHere"
-const contractABI = [
-  {
-    inputs: [
-      { name: "to", type: "address" },
-      { name: "tokenUri", type: "string" },
-    ],
-    name: "mint",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-]
+import { useAccount } from "wagmi"
 
 export default function MintForm() {
   const { address } = useAccount()
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
-
-  const { write } = useContractWrite({
-    mode: "recklesslyUnprepared",
-    address: contractAddress as `0x${string}`,
-    abi: contractABI,
-    functionName: "mint",
-  })
 
   const handleMint = async () => {
     if (!address) {
@@ -36,32 +14,32 @@ export default function MintForm() {
 
     try {
       setLoading(true)
-      setMessage("Uploading metadata to IPFS...")
+      setMessage("Requesting memory store...")
 
-      // Dummy metadata for now
+      // 1️⃣ Create memory store via backend
+      const initRes = await fetch("http://localhost:3001/api/initAgentProfile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+      const { memory_uri } = await initRes.json()
+
+      setMessage("Pinning metadata with memory_uri...")
+
+      // 2️⃣ Pin metadata with memory_uri
       const metadata = {
-        name: "Dummy Agent",
-        description: "This is a test NFT for Cryptixia",
-        image: "https://via.placeholder.com/300",
+        name: "Cryptixia Agent",
+        description: "Your on-chain AI agent",
+        memory_uri,
       }
 
-      // Call backend API
-      const res = await fetch("http://localhost:3001/api/pinMetadata", {
+      const pinRes = await fetch("http://localhost:3001/api/pinMetadata", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(metadata),
       })
+      const data = await pinRes.json()
 
-      if (!res.ok) throw new Error("Failed to pin metadata")
-
-      const { cid } = await res.json()
-      const tokenUri = `ipfs://${cid}`
-
-      setMessage(`Metadata pinned: ${tokenUri}`)
-      console.log("Minting with tokenUri:", tokenUri)
-
-      // Call smart contract
-      write?.({ args: [address, tokenUri] })
+      setMessage(`Pinned to IPFS: ${data.gatewayUrl}`)
     } catch (err) {
       console.error(err)
       setMessage("Mint failed")
