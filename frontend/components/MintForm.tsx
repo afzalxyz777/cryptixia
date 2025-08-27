@@ -573,4 +573,3 @@ export default function MintForm() {
   );
 }
 
-export default MintForm
