@@ -1,19 +1,20 @@
-// frontend/pages/_app.tsx
+// frontend/pages/_app.tsx (Alternative approach)
 import '../styles/globals.css'
 import type { AppProps } from 'next/app'
-import { WagmiConfig } from 'wagmi'
-import { RainbowKitProvider } from '@rainbow-me/rainbowkit'
+import dynamic from 'next/dynamic'
 import '@rainbow-me/rainbowkit/styles.css'
 
-import { wagmiClient, chains } from '../lib/wagmi'
+// Dynamically import Web3Provider with no SSR
+const Web3Provider = dynamic(() => import('../components/Web3Provider'), {
+  ssr: false,
+  loading: () => <div>Loading...</div>
+})
 
 function MyApp({ Component, pageProps }: AppProps) {
   return (
-    <WagmiConfig client={wagmiClient}>
-      <RainbowKitProvider chains={chains}>
-        <Component {...pageProps} />
-      </RainbowKitProvider>
-    </WagmiConfig>
+    <Web3Provider>
+      <Component {...pageProps} />
+    </Web3Provider>
   )
 }
 

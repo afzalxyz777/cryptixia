@@ -5,7 +5,7 @@ import { publicProvider } from "wagmi/providers/public";
 import { getDefaultWallets } from "@rainbow-me/rainbowkit";
 
 // Configure Fuji chain only
-const { chains, provider } = configureChains(
+const { chains, provider, webSocketProvider } = configureChains(
   [avalancheFuji],
   [publicProvider()]
 );
@@ -18,9 +18,10 @@ const { connectors } = getDefaultWallets({
 
 // Wagmi client
 export const wagmiClient = createClient({
-  autoConnect: true,
+  autoConnect: false, // Disable autoConnect to prevent SSR issues
   connectors,
   provider,
+  webSocketProvider, // Add webSocketProvider if available
 });
 
 export { chains };

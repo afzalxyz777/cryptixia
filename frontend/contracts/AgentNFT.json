@@ -62,6 +62,25 @@
     },
     {
         "type": "function",
+        "name": "getMemoryHash",
+        "inputs": [
+            {
+                "name": "tokenId",
+                "type": "uint256",
+                "internalType": "uint256"
+            }
+        ],
+        "outputs": [
+            {
+                "name": "",
+                "type": "string",
+                "internalType": "string"
+            }
+        ],
+        "stateMutability": "view"
+    },
+    {
+        "type": "function",
         "name": "isApprovedForAll",
         "inputs": [
             {
@@ -162,6 +181,19 @@
     },
     {
         "type": "function",
+        "name": "publicMint",
+        "inputs": [
+            {
+                "name": "tokenUri",
+                "type": "string",
+                "internalType": "string"
+            }
+        ],
+        "outputs": [],
+        "stateMutability": "nonpayable"
+    },
+    {
+        "type": "function",
         "name": "renounceOwnership",
         "inputs": [],
         "outputs": [],
@@ -231,6 +263,24 @@
                 "name": "approved",
                 "type": "bool",
                 "internalType": "bool"
+            }
+        ],
+        "outputs": [],
+        "stateMutability": "nonpayable"
+    },
+    {
+        "type": "function",
+        "name": "setMemoryHash",
+        "inputs": [
+            {
+                "name": "tokenId",
+                "type": "uint256",
+                "internalType": "uint256"
+            },
+            {
+                "name": "hash",
+                "type": "string",
+                "internalType": "string"
             }
         ],
         "outputs": [],
@@ -413,6 +463,25 @@
                 "type": "uint256",
                 "indexed": false,
                 "internalType": "uint256"
+            }
+        ],
+        "anonymous": false
+    },
+    {
+        "type": "event",
+        "name": "MemoryHashSet",
+        "inputs": [
+            {
+                "name": "tokenId",
+                "type": "uint256",
+                "indexed": true,
+                "internalType": "uint256"
+            },
+            {
+                "name": "memoryHash",
+                "type": "string",
+                "indexed": false,
+                "internalType": "string"
             }
         ],
         "anonymous": false
