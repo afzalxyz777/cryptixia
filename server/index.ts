@@ -2,8 +2,18 @@
 import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
-import pinMetadata from "./api/pinMetadata"
-import initAgentProfile from "./api/initAgentProfile"   // ✅ import
+
+import pinMetadataRoute from "./api/pinMetadata"
+import initAgentProfileRoute from "./api/initAgentProfile"
+
+// ✅ Catch silent crashes
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled Rejection:", reason)
+})
+
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err)
+})
 
 dotenv.config({ path: ".env.local" })
 
@@ -11,10 +21,10 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
-// ✅ register API routes
-app.use("/api/pinMetadata", pinMetadata)
-app.use("/api/initAgentProfile", initAgentProfile)
+app.use("/api/pinMetadata", pinMetadataRoute)
+app.use("/api/initAgentProfile", initAgentProfileRoute)
 
-app.listen(3001, () => {
-  console.log("Server running on http://localhost:3001")
+const PORT = process.env.PORT || 3001
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`)
 })
