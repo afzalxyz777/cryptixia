@@ -1,30 +1,33 @@
 // server/index.ts
-import express from "express"
-import cors from "cors"
-import dotenv from "dotenv"
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
 
-import pinMetadataRoute from "./api/pinMetadata"
-import initAgentProfileRoute from "./api/initAgentProfile"
+import pinMetadataRoute from "./api/pinMetadata";
+import initAgentProfileRoute from "./api/initAgentProfile";
+import huggingfaceRoute from "./api/huggingface"; // ✅ NEW
 
 // ✅ Catch silent crashes
 process.on("unhandledRejection", (reason) => {
-  console.error("Unhandled Rejection:", reason)
-})
+  console.error("Unhandled Rejection:", reason);
+});
 
 process.on("uncaughtException", (err) => {
-  console.error("Uncaught Exception:", err)
-})
+  console.error("Uncaught Exception:", err);
+});
 
-dotenv.config({ path: ".env.local" })
+dotenv.config({ path: ".env.local" });
 
-const app = express()
-app.use(cors())
-app.use(express.json())
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-app.use("/api/pinMetadata", pinMetadataRoute)
-app.use("/api/initAgentProfile", initAgentProfileRoute)
+// ✅ Routes
+app.use("/api/pinMetadata", pinMetadataRoute);
+app.use("/api/initAgentProfile", initAgentProfileRoute);
+app.use("/api/huggingface", huggingfaceRoute); // ✅ NEW
 
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`)
-})
+  console.log(`Server running on http://localhost:${PORT}`);
+});
