@@ -1,106 +1,111 @@
-"use client";
+// frontend/components/VoiceButton.tsx
+import { useState, useRef } from 'react';
 
-import { useEffect, useRef, useState } from "react";
+interface VoiceButtonProps {
+  onSpeechResult: (text: string) => void;  // When we hear something, tell the parent
+  isDisabled?: boolean;
+}
 
-type SRConstructor = new () => SpeechRecognition;
+export default function VoiceButton({ onSpeechResult, isDisabled = false }: VoiceButtonProps) {
+  const [isListening, setIsListening] = useState(false);
+  const [error, setError] = useState('');
+  const recognitionRef = useRef<any>(null);
 
-export default function VoiceButton() {
-  const [supported, setSupported] = useState(false);
-  const [listening, setListening] = useState(false);
-  const [lastUserText, setLastUserText] = useState("");
-  const [reply, setReply] = useState("");
-  const recRef = useRef<SpeechRecognition | null>(null);
+  const startListening = () => {
+    // Check if browser supports speech recognition (like checking if you have a microphone)
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      setError('Sorry! Your browser doesn\'t support voice input 😢');
+      return;
+    }
 
-  // Shorten long model replies to keep UI tidy
-  const shorten = (s: string, n = 200) => (s.length > n ? s.slice(0, n).trim() + "…" : s);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const SR: SRConstructor | undefined =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SR) return setSupported(false);
-
-    setSupported(true);
-    const rec = new SR();
-    rec.lang = "en-US";
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-
-    rec.onresult = async (e: SpeechRecognitionEvent) => {
-      const text = e.results?.[0]?.[0]?.transcript || "";
-      setLastUserText(text);
-      setListening(false);
-
-      try {
-        const res = await fetch("http://localhost:3001/api/huggingface/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text }),
-        });
-
-        // If backend throws HTML/error, avoid JSON parse crash
-        const raw = await res.text();
-        let data: any = {};
-        try {
-          data = JSON.parse(raw);
-        } catch {
-          data = { reply: raw };
-        }
-
-        const modelReply = typeof data === "string" ? data : (data.reply ?? raw);
-        setReply(shorten(String(modelReply)));
-      } catch (err: any) {
-        setReply(shorten(`Error: ${err?.message || "request failed"}`));
-      }
-    };
-
-    rec.onerror = () => setListening(false);
-    rec.onend = () => setListening(false);
-
-    recRef.current = rec;
-
-    return () => {
-      try {
-        recRef.current?.stop();
-      } catch {}
-      recRef.current = null;
-    };
-  }, []);
-
-  const start = () => {
-    if (!supported || !recRef.current) return;
     try {
-      setReply("");
-      setLastUserText("");
-      setListening(true);
-      recRef.current.start();
-    } catch {
-      setListening(false);
+      // Create the speech recognizer (the thing that listens to you)
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      
+      // Set it up like teaching it how to listen
+      recognition.continuous = false; // Stop after one sentence
+      recognition.interimResults = false; // Only final results
+      recognition.lang = 'en-US'; // Listen in English
+
+      // What happens when it hears something
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        console.log('Heard:', transcript);
+        onSpeechResult(transcript); // Tell the parent what we heard!
+        setIsListening(false);
+      };
+
+      // What happens when it's done listening
+      recognition.onend = () => {
+        setIsListening(false);
+        console.log('Stopped listening');
+      };
+
+      // What happens if there's an error
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setError(`Oops! ${event.error}`);
+        setIsListening(false);
+      };
+
+      // Start listening!
+      recognition.start();
+      recognitionRef.current = recognition;
+      setIsListening(true);
+      setError('');
+
+    } catch (err) {
+      console.error('Error starting speech recognition:', err);
+      setError('Could not start voice input');
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
     }
   };
 
   return (
-    <div className="mt-6 w-full max-w-xl">
+    <div className="flex flex-col items-center space-y-2">
+      {/* The Magic Voice Button! */}
       <button
-        onClick={start}
-        disabled={!supported || listening}
-        className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white"
+        onClick={isListening ? stopListening : startListening}
+        disabled={isDisabled}
+        className={`
+          w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold transition-all
+          ${isListening 
+            ? 'bg-red-500 hover:bg-red-600 animate-pulse text-white' 
+            : isDisabled
+            ? 'bg-gray-600 cursor-not-allowed text-gray-400'
+            : 'bg-blue-500 hover:bg-blue-600 text-white hover:scale-105'
+          }
+        `}
       >
-        {listening ? "Listening…" : supported ? "🎙️ Speak" : "Speech not supported"}
+        {isListening ? '🛑' : '🎤'}
       </button>
 
-      {lastUserText && (
-        <div className="mt-3 text-sm text-gray-300">
-          <span className="font-semibold">You:</span> {lastUserText}
-        </div>
-      )}
-      {reply && (
-        <div className="mt-2 p-3 rounded-lg bg-gray-800 text-sm text-gray-100 break-words">
-          {reply}
-        </div>
-      )}
+      {/* Status text */}
+      <div className="text-center">
+        {isListening ? (
+          <p className="text-blue-400 text-sm animate-pulse">
+            🎧 Listening... (Click to stop)
+          </p>
+        ) : (
+          <p className="text-gray-400 text-sm">
+            Click to speak
+          </p>
+        )}
+        
+        {/* Show errors in red */}
+        {error && (
+          <p className="text-red-400 text-xs mt-1">
+            {error}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
