@@ -1,11 +1,12 @@
+// server/pinecone.ts
 import "dotenv/config";
 import { Pinecone } from "@pinecone-database/pinecone";
 
 if (!process.env.PINECONE_API_KEY) {
-  throw new Error("❌ Missing PINECONE_API_KEY in .env.local");
+  throw new Error("Missing PINECONE_API_KEY in .env.local");
 }
 if (!process.env.PINECONE_INDEX_NAME) {
-  throw new Error("❌ Missing PINECONE_INDEX_NAME in .env.local");
+  throw new Error("Missing PINECONE_INDEX_NAME in .env.local");
 }
 
 const pinecone = new Pinecone({
@@ -18,6 +19,6 @@ const pinecone = new Pinecone({
  */
 export async function getPineconeIndex() {
   const indexName = process.env.PINECONE_INDEX_NAME!;
-  console.log(`📦 Connecting to Pinecone index: ${indexName}`);
+  console.log(`Connecting to Pinecone index: ${indexName}`);
   return pinecone.index(indexName);
 }

@@ -10,7 +10,7 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-gray-900 space-y-6">
       <h1 className="text-3xl font-bold text-white">
-        Hello Cryptixia 👋
+        Welcome to Cryptixia 🤖
       </h1>
 
       {/* Wallet Connect Button */}
