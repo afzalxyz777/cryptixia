@@ -5,7 +5,8 @@ import dotenv from "dotenv";
 
 import pinMetadataRoute from "./api/pinMetadata";
 import initAgentProfileRoute from "./api/initAgentProfile";
-import huggingfaceRoute from "./api/huggingface"; // ✅ NEW
+import huggingfaceRoute from "./api/huggingface";
+import embeddingsRoute from "./api/embeddings"; // ✅ NEW
 
 // ✅ Catch silent crashes
 process.on("unhandledRejection", (reason) => {
@@ -25,7 +26,8 @@ app.use(express.json());
 // ✅ Routes
 app.use("/api/pinMetadata", pinMetadataRoute);
 app.use("/api/initAgentProfile", initAgentProfileRoute);
-app.use("/api/huggingface", huggingfaceRoute); // ✅ NEW
+app.use("/api/huggingface", huggingfaceRoute);
+app.use("/api/embeddings", embeddingsRoute); // ✅ NEW
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
