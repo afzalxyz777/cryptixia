@@ -1,206 +1,246 @@
-// components/MintFormClient.tsx - Updated for new contract
-import { useState, FormEvent, useEffect } from "react";
-import { useAccount, useNetwork, useSwitchNetwork } from "wagmi";
-import { usePrepareContractWrite, useContractWrite, useWaitForTransaction, useContractRead } from "wagmi";
-import { avalancheFuji } from 'wagmi/chains';
-import NFT_ABI from "../contracts/AgentNFT.json";
+// frontend/components/MintFormClient.tsx
+import { useState } from 'react';
+import { useAccount } from 'wagmi';
 
-// New deployed contract address
-const NFT_CONTRACT_ADDRESS = "0x9e1d2dBF31f5c0De12836aD7144D9a7CfE0e239A";
+// Personality options from your Day 5 plan
+const PERSONALITIES = [
+  { 
+    id: 'friendly', 
+    name: 'Friendly', 
+    description: 'Warm and welcoming, loves to chat',
+    emoji: '😊',
+    color: 'bg-green-500'
+  },
+  { 
+    id: 'pragmatic', 
+    name: 'Pragmatic', 
+    description: 'Practical and focused on results',
+    emoji: '🧠',
+    color: 'bg-blue-500'
+  },
+  { 
+    id: 'adventurous', 
+    name: 'Adventurous', 
+    description: 'Bold and curious about everything',
+    emoji: '🚀',
+    color: 'bg-orange-500'
+  },
+  { 
+    id: 'cautious', 
+    name: 'Cautious', 
+    description: 'Careful and thoughtful in decisions',
+    emoji: '🛡️',
+    color: 'bg-purple-500'
+  }
+];
 
 function MintFormClient() {
-    const { address, isConnected } = useAccount();
-    const [tokenURI, setTokenURI] = useState("");
-    const { chain } = useNetwork();
-    const { switchNetwork } = useSwitchNetwork();
-    const [mounted, setMounted] = useState(false);
+  const { address, isConnected } = useAccount();
+  const [selectedPersonality, setSelectedPersonality] = useState(PERSONALITIES[0].id);
+  const [isLoading, setIsLoading] = useState(false);
+  const [status, setStatus] = useState('');
+  const [step, setStep] = useState(1); // 1: Select personality, 2: Minting process
 
-    const isCorrectNetwork = chain?.id === avalancheFuji.id;
+  const handlePersonalitySelect = () => {
+    setStep(2);
+  };
 
-    // Read contract info with proper typing
-    const { data: contractName } = useContractRead({
-        address: NFT_CONTRACT_ADDRESS,
-        abi: NFT_ABI,
-        functionName: 'name',
-        enabled: Boolean(isCorrectNetwork),
-    }) as { data: string | undefined };
-
-    const { data: totalSupply } = useContractRead({
-        address: NFT_CONTRACT_ADDRESS,
-        abi: NFT_ABI,
-        functionName: 'nextTokenId', // This gives us total minted
-        enabled: Boolean(isCorrectNetwork),
-    }) as { data: bigint | undefined };
-
-    // Use publicMint if you chose Option B, or mint if you chose Option A
-    const { config, error: prepareError } = usePrepareContractWrite({
-        address: NFT_CONTRACT_ADDRESS,
-        abi: NFT_ABI,
-        functionName: 'publicMint', // Change to 'mint' if using Option A
-        args: [tokenURI], // publicMint only takes tokenURI, mint takes (address, tokenURI)
-        enabled: Boolean(tokenURI && address && isCorrectNetwork && mounted),
-    });
-
-    const {
-        data,
-        isLoading: isMinting,
-        isSuccess,
-        write,
-        error: writeError,
-        reset
-    } = useContractWrite(config);
-
-    const {
-        data: receipt,
-        isLoading: isConfirming,
-        isSuccess: isConfirmed
-    } = useWaitForTransaction({
-        hash: data?.hash,
-    });
-
-    const handleSubmit = (e: FormEvent) => {
-        e.preventDefault();
-
-        if (!isCorrectNetwork && switchNetwork) {
-            switchNetwork(avalancheFuji.id);
-            return;
-        }
-
-        if (write) {
-            write();
-        }
-    };
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    if (!mounted) {
-        return <div>Loading...</div>;
+  const handleMint = async () => {
+    if (!isConnected || !address) {
+      setStatus('❌ Please connect your wallet first');
+      return;
     }
 
-    if (!isConnected) {
-        return (
-            <div style={{ padding: '20px', border: '2px solid red', borderRadius: '8px' }}>
-                <h3>❌ Wallet Not Connected</h3>
-                <p>Please connect your wallet first.</p>
-            </div>
-        );
+    try {
+      setIsLoading(true);
+      setStatus('🔧 Creating agent profile...');
+
+      // Step 1: Create agent profile and get memory_uri
+      const profileResponse = await fetch('http://localhost:3001/api/initAgentProfile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          personality: selectedPersonality
+        })
+      });
+
+      if (!profileResponse.ok) {
+        throw new Error('Failed to create agent profile');
+      }
+
+      const { memory_uri, agentProfile } = await profileResponse.json();
+
+      setStatus('📦 Uploading metadata to IPFS...');
+
+      // Step 2: Create and pin metadata to IPFS
+      const metadata = {
+        name: `Cryptixia Agent #${Date.now()}`,
+        description: `A ${selectedPersonality} AI agent ready to learn and grow`,
+        personality: selectedPersonality,
+        traits: {
+          personality: selectedPersonality,
+          curious: selectedPersonality === 'adventurous',
+          friendly: selectedPersonality === 'friendly',
+          cautious: selectedPersonality === 'cautious',
+          pragmatic: selectedPersonality === 'pragmatic'
+        },
+        memory_uri,
+        created_at: new Date().toISOString(),
+        avatar_seed: Date.now() // For deterministic avatar generation
+      };
+
+      const metadataResponse = await fetch('http://localhost:3001/api/pinMetadata', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(metadata)
+      });
+
+      if (!metadataResponse.ok) {
+        throw new Error('Failed to pin metadata to IPFS');
+      }
+
+      const { cid } = await metadataResponse.json();
+      const tokenURI = `ipfs://${cid}`;
+
+      setStatus(`✅ Agent created successfully!`);
+      
+      // TODO: Tomorrow (Day 6) we'll connect this to the actual smart contract
+      console.log('Minting details:', {
+        tokenURI,
+        personality: selectedPersonality,
+        memory_uri,
+        cid
+      });
+      
+    } catch (error: any) {
+      console.error('Mint error:', error);
+      setStatus(`❌ Error: ${error.message || 'Something went wrong'}`);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    if (!isCorrectNetwork) {
-        return (
-            <div style={{ padding: '20px', border: '2px solid orange', borderRadius: '8px' }}>
-                <h3>⚠️ Wrong Network</h3>
-                <p>Current: {chain?.name || 'Unknown'}</p>
-                <p>Required: Avalanche Fuji</p>
-                {switchNetwork && (
-                    <button onClick={() => switchNetwork(avalancheFuji.id)}>
-                        Switch to Avalanche Fuji
-                    </button>
-                )}
+  const selectedPersonalityData = PERSONALITIES.find(p => p.id === selectedPersonality);
+
+  if (!selectedPersonalityData) {
+    return <div className="text-red-400">Error: Invalid personality selected</div>;
+  }
+
+  return (
+    <div className="max-w-md mx-auto bg-gray-800 rounded-lg p-6 shadow-lg">
+      {step === 1 ? (
+        // Step 1: Personality Selection
+        <>
+          <h2 className="text-2xl font-bold text-white mb-6 text-center">
+            Choose Your Agent's Personality
+          </h2>
+          
+          <div className="space-y-3 mb-6">
+            {PERSONALITIES.map((personality) => (
+              <div
+                key={personality.id}
+                onClick={() => setSelectedPersonality(personality.id)}
+                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  selectedPersonality === personality.id
+                    ? 'border-blue-500 bg-gray-700'
+                    : 'border-gray-600 bg-gray-750 hover:border-gray-500'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className={`w-10 h-10 ${personality.color} rounded-full flex items-center justify-center text-lg`}>
+                    {personality.emoji}
+                  </div>
+                  <div>
+                    <h3 className="text-white font-medium">{personality.name}</h3>
+                    <p className="text-gray-400 text-sm">{personality.description}</p>
+                  </div>
+                  {selectedPersonality === personality.id && (
+                    <div className="ml-auto text-blue-500">
+                      ✓
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={handlePersonalitySelect}
+            disabled={!isConnected}
+            className={`w-full py-3 rounded-lg font-medium text-white ${
+              isConnected
+                ? 'bg-blue-600 hover:bg-blue-700'
+                : 'bg-gray-600 cursor-not-allowed'
+            }`}
+          >
+            {isConnected ? 'Continue →' : 'Connect Wallet First'}
+          </button>
+        </>
+      ) : (
+        // Step 2: Confirmation and Minting
+        <>
+          <h2 className="text-2xl font-bold text-white mb-6 text-center">
+            Create Your Agent
+          </h2>
+
+          {/* Selected personality preview */}
+          <div className="bg-gray-700 rounded-lg p-4 mb-6">
+            <div className="flex items-center space-x-3">
+              <div className={`w-12 h-12 ${selectedPersonalityData.color} rounded-full flex items-center justify-center text-xl`}>
+                {selectedPersonalityData.emoji}
+              </div>
+              <div>
+                <h3 className="text-white font-medium">{selectedPersonalityData.name}</h3>
+                <p className="text-gray-400 text-sm">{selectedPersonalityData.description}</p>
+              </div>
             </div>
-        );
-    }
+          </div>
 
-    const isLoading = isMinting || isConfirming;
-
-    return (
-        <div style={{ padding: '20px', border: '2px solid green', borderRadius: '8px' }}>
-            <h3>🎨 Mint Agent NFT</h3>
-
-            <div style={{ marginBottom: '20px', backgroundColor: '#f8f9fa', padding: '15px', borderRadius: '8px' }}>
-                <h4>📊 Contract Info:</h4>
-                <p><strong>Contract:</strong> {NFT_CONTRACT_ADDRESS}</p>
-                <p><strong>Name:</strong> {contractName ? String(contractName) : 'Loading...'}</p>
-                <p><strong>Total Minted:</strong> {totalSupply ? String(totalSupply) : '0'}</p>
-                <p><strong>Your Address:</strong> {address?.slice(0, 6)}...{address?.slice(-4)}</p>
-                <p><strong>Network:</strong> {chain?.name} (ID: {chain?.id})</p>
+          {/* Status */}
+          {status && (
+            <div className="mb-4 p-3 rounded-lg bg-gray-700 text-white text-sm">
+              {status}
             </div>
+          )}
 
-            <form onSubmit={handleSubmit} style={{ marginBottom: '20px' }}>
-                <div style={{ marginBottom: '15px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                        Token URI (Metadata URL):
-                    </label>
-                    <input
-                        type="url"
-                        value={tokenURI}
-                        onChange={(e) => setTokenURI(e.target.value)}
-                        placeholder="https://jsonkeeper.com/b/YOUR_JSON_ID"
-                        required
-                        style={{
-                            width: '100%',
-                            padding: '10px',
-                            border: '1px solid #ccc',
-                            borderRadius: '4px',
-                            fontSize: '14px'
-                        }}
-                    />
-                    <small style={{ color: '#666' }}>
-                        💡 Tip: Use a service like JSONKeeper or IPFS to host your metadata
-                    </small>
-                </div>
+          {/* Actions */}
+          <div className="space-y-3">
+            <button
+              onClick={handleMint}
+              disabled={isLoading || !isConnected}
+              className={`w-full py-3 rounded-lg font-medium text-white ${
+                isLoading
+                  ? 'bg-gray-600 cursor-not-allowed'
+                  : isConnected
+                  ? 'bg-green-600 hover:bg-green-700'
+                  : 'bg-gray-600 cursor-not-allowed'
+              }`}
+            >
+              {isLoading ? 'Creating Agent...' : 'Mint Agent NFT'}
+            </button>
 
-                <button
-                    type="submit"
-                    disabled={!write || !tokenURI.trim() || isLoading}
-                    style={{
-                        padding: '12px 24px',
-                        backgroundColor: write && tokenURI.trim() && !isLoading ? '#28a745' : '#ccc',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: write && tokenURI.trim() && !isLoading ? 'pointer' : 'not-allowed',
-                        fontSize: '16px',
-                        fontWeight: 'bold'
-                    }}
-                >
-                    {isLoading ? (isMinting ? "Sending Transaction..." : "Confirming...") : "🚀 Mint Agent NFT"}
-                </button>
-            </form>
+            <button
+              onClick={() => setStep(1)}
+              disabled={isLoading}
+              className="w-full py-2 rounded-lg font-medium text-gray-400 hover:text-white border border-gray-600 hover:border-gray-500"
+            >
+              ← Change Personality
+            </button>
+          </div>
 
-            {/* Error Messages */}
-            {prepareError && (
-                <div style={{ padding: '10px', backgroundColor: '#f8d7da', border: '1px solid #f5c6cb', borderRadius: '4px', marginBottom: '10px' }}>
-                    <strong>❌ Error:</strong> {prepareError.message}
-                </div>
-            )}
-
-            {writeError && (
-                <div style={{ padding: '10px', backgroundColor: '#f8d7da', border: '1px solid #f5c6cb', borderRadius: '4px', marginBottom: '10px' }}>
-                    <strong>❌ Transaction Error:</strong> {writeError.message}
-                </div>
-            )}
-
-            {/* Success Messages */}
-            {data && !isConfirmed && (
-                <div style={{ padding: '10px', backgroundColor: '#fff3cd', border: '1px solid #ffeaa7', borderRadius: '4px', marginBottom: '10px' }}>
-                    <strong>⏳ Transaction Sent:</strong><br />
-                    Hash: <code>{data.hash}</code><br />
-                    <small>Waiting for confirmation...</small>
-                </div>
-            )}
-
-            {isConfirmed && receipt && (
-                <div style={{ padding: '15px', backgroundColor: '#d4edda', border: '1px solid #c3e6cb', borderRadius: '4px' }}>
-                    <h4>✅ NFT Minted Successfully! 🎉</h4>
-                    <p><strong>Transaction:</strong> <code>{data?.hash}</code></p>
-                    <p><strong>Block:</strong> {receipt.blockNumber?.toString()}</p>
-                    <p><strong>Token ID:</strong> {totalSupply ? String(Number(totalSupply) - 1) : 'Unknown'}</p>
-                    <p><strong>Gas Used:</strong> {receipt.gasUsed ? String(receipt.gasUsed) : 'Unknown'}</p>
-                </div>
-            )}
-
-            {/* Contract Address Warning */}
-            {NFT_CONTRACT_ADDRESS === "0x9e1d2dBF31f5c0De12836aD7144D9a7CfE0e239A" && (
-                <div style={{ padding: '15px', backgroundColor: '#f8d7da', border: '2px solid #dc3545', borderRadius: '8px', marginTop: '20px' }}>
-                    <h4>⚠️ IMPORTANT:</h4>
-                    <p>Remember to update the contract address after redeployment!</p>
-                </div>
-            )}
-        </div>
-    );
+          {!isConnected && (
+            <p className="text-red-400 text-sm text-center mt-4">
+              Please connect your wallet to continue
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
 
 export default MintFormClient;

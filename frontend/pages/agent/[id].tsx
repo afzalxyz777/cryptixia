@@ -1,115 +1,141 @@
-"use client";
+// frontend/pages/agent/[id].tsx
+import { useRouter } from 'next/router';
+import { useEffect, useState } from 'react';
+import { useAccount } from 'wagmi';
+import AgentCard from '../../components/AgentCard';
+import ChatUI from '../../components/ChatUI';
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
-import AgentCard from "../../components/AgentCard";
-import VoiceButton from "../../components/VoiceButton";
-
-interface Memory {
-  id: string;
-  text: string;
-  score: number;
-}
-
-interface Agent {
-  id: string;
+interface AgentMetadata {
   name: string;
+  description: string;
   personality: string;
-  traits: Record<string, any>;
-  avatar: string;
+  traits: {
+    personality: string;
+    curious: boolean;
+    friendly: boolean;
+    cautious: boolean;
+    pragmatic: boolean;
+  };
+  memory_uri: string;
+  created_at: string;
 }
 
-export default function AgentPage() {
+export default function AgentProfile() {
   const router = useRouter();
   const { id } = router.query;
+  const { address } = useAccount();
+  
+  const [agent, setAgent] = useState<AgentMetadata | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const [agent, setAgent] = useState<Agent | null>(null);
-  const [memories, setMemories] = useState<Memory[]>([]);
-  const [loadingMemories, setLoadingMemories] = useState(false);
-
-  // Fetch agent metadata
   useEffect(() => {
-    if (!id) return;
-
-    const fetchAgent = async () => {
-      try {
-        const res = await fetch(`/api/getAgent?id=${id}`);
-        const data = await res.json();
-        setAgent(data.agent);
-      } catch (err) {
-        console.error("Failed to fetch agent:", err);
-      }
-    };
-
-    fetchAgent();
+    if (id) {
+      fetchAgentData(id as string);
+    }
   }, [id]);
 
-  // Fetch top 5 memories
-  const fetchMemories = async () => {
-    if (!id) return;
-    setLoadingMemories(true);
+  const fetchAgentData = async (tokenId: string) => {
     try {
-      const res = await fetch(`/api/embeddings/listMemories?userId=${id}&topK=5`);
-      const data = await res.json();
-      setMemories(data.memories || []);
+      setLoading(true);
+      
+      // For now, we'll create mock data
+      // Later this will fetch from your contract and IPFS
+      const mockAgent: AgentMetadata = {
+        name: `Cryptixia Agent #${tokenId}`,
+        description: "A friendly AI agent",
+        personality: "friendly",
+        traits: {
+          personality: "friendly",
+          curious: false,
+          friendly: true,
+          cautious: false,
+          pragmatic: false
+        },
+        memory_uri: "memory://mock_hash",
+        created_at: new Date().toISOString()
+      };
+
+      setAgent(mockAgent);
     } catch (err) {
-      console.error("Failed to fetch memories:", err);
+      setError('Failed to load agent data');
+      console.error('Error fetching agent:', err);
     } finally {
-      setLoadingMemories(false);
+      setLoading(false);
     }
   };
 
-  // Live update every 10s
-  useEffect(() => {
-    fetchMemories();
-    const interval = setInterval(fetchMemories, 10000);
-    return () => clearInterval(interval);
-  }, [id]);
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Loading agent...</div>
+      </div>
+    );
+  }
 
-  const handleDeleteMemory = async (memoryId: string) => {
-    try {
-      await fetch(`/api/embeddings/deleteMemory?id=${memoryId}`, { method: "DELETE" });
-      setMemories((prev) => prev.filter((m) => m.id !== memoryId));
-    } catch (err) {
-      console.error("Failed to delete memory:", err);
-    }
-  };
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-red-400 text-xl">{error}</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      {agent && <AgentCard agent={agent} />}
+    <div className="min-h-screen bg-gray-900 py-8 px-4">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <button
+            onClick={() => router.back()}
+            className="text-blue-400 hover:text-blue-300 mb-4"
+          >
+            ← Back
+          </button>
+          <h1 className="text-3xl font-bold text-white">Agent Profile</h1>
+        </div>
 
-      <div className="mt-6">
-        <h2 className="text-xl font-semibold text-gray-200 mb-3">Memories (Top 5)</h2>
-        {loadingMemories && <p className="text-gray-400">Loading memories...</p>}
-        {memories.length === 0 && !loadingMemories && (
-          <p className="text-gray-400">No memories yet.</p>
+        {/* Agent Card */}
+        {agent && (
+          <div className="mb-8">
+            <AgentCard 
+              agent={agent} 
+              tokenId={id as string}
+              showDetails={true}
+            />
+          </div>
         )}
-        <ul className="space-y-3">
-          {memories.map((m) => (
-            <li
-              key={m.id}
-              className="p-3 rounded-lg bg-gray-800 text-gray-100 flex justify-between items-center"
-            >
-              <span>{m.text}</span>
-              <button
-                className="ml-4 px-2 py-1 text-sm bg-red-600 hover:bg-red-500 rounded"
-                onClick={() => handleDeleteMemory(m.id)}
-              >
-                Delete
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
 
-      <div className="mt-8">
-        <h2 className="text-xl font-semibold text-gray-200 mb-3">Talk to Agent</h2>
-        <VoiceButton
-          onResponse={() => {
-            fetchMemories(); // refresh memories after each interaction
-          }}
-        />
+        {/* Chat with Agent */}
+        <div className="bg-gray-800 rounded-lg p-6 mb-6">
+          <h2 className="text-xl font-bold text-white mb-4">💬 Chat with Your Agent</h2>
+          <ChatUI 
+            agentId={id as string}
+            agentName={agent?.name || "Unknown Agent"}
+          />
+        </div>
+
+        {/* Memory Summary Section */}
+        <div className="bg-gray-800 rounded-lg p-6 mb-6">
+          <h2 className="text-xl font-bold text-white mb-4">🧠 Memory Summary</h2>
+          <p className="text-gray-400">
+            This agent has no memories yet. Start chatting to build memories!
+          </p>
+          {/* TODO: Tomorrow we'll add actual memory display here */}
+        </div>
+
+        {/* Actions */}
+        <div className="flex space-x-4">
+          <button 
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium"
+          >
+            ⬆️ Back to Chat
+          </button>
+          <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium">
+            🧠 View Memories (Coming Soon)
+          </button>
+        </div>
       </div>
     </div>
   );

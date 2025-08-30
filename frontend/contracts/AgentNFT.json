@@ -62,44 +62,6 @@
     },
     {
         "type": "function",
-        "name": "getMemoryAuditLog",
-        "inputs": [
-            {
-                "name": "tokenId",
-                "type": "uint256",
-                "internalType": "uint256"
-            }
-        ],
-        "outputs": [
-            {
-                "name": "",
-                "type": "bytes32[]",
-                "internalType": "bytes32[]"
-            }
-        ],
-        "stateMutability": "view"
-    },
-    {
-        "type": "function",
-        "name": "getMemoryAuditLogCount",
-        "inputs": [
-            {
-                "name": "tokenId",
-                "type": "uint256",
-                "internalType": "uint256"
-            }
-        ],
-        "outputs": [
-            {
-                "name": "",
-                "type": "uint256",
-                "internalType": "uint256"
-            }
-        ],
-        "stateMutability": "view"
-    },
-    {
-        "type": "function",
         "name": "getMemoryHash",
         "inputs": [
             {
@@ -140,42 +102,6 @@
             }
         ],
         "stateMutability": "view"
-    },
-    {
-        "type": "function",
-        "name": "logMemoryForgotten",
-        "inputs": [
-            {
-                "name": "tokenId",
-                "type": "uint256",
-                "internalType": "uint256"
-            },
-            {
-                "name": "hash",
-                "type": "bytes32",
-                "internalType": "bytes32"
-            }
-        ],
-        "outputs": [],
-        "stateMutability": "nonpayable"
-    },
-    {
-        "type": "function",
-        "name": "logMemoryHash",
-        "inputs": [
-            {
-                "name": "tokenId",
-                "type": "uint256",
-                "internalType": "uint256"
-            },
-            {
-                "name": "hash",
-                "type": "bytes32",
-                "internalType": "bytes32"
-            }
-        ],
-        "outputs": [],
-        "stateMutability": "nonpayable"
     },
     {
         "type": "function",
@@ -543,31 +469,6 @@
     },
     {
         "type": "event",
-        "name": "MemoryForgotten",
-        "inputs": [
-            {
-                "name": "tokenId",
-                "type": "uint256",
-                "indexed": true,
-                "internalType": "uint256"
-            },
-            {
-                "name": "hash",
-                "type": "bytes32",
-                "indexed": true,
-                "internalType": "bytes32"
-            },
-            {
-                "name": "timestamp",
-                "type": "uint256",
-                "indexed": false,
-                "internalType": "uint256"
-            }
-        ],
-        "anonymous": false
-    },
-    {
-        "type": "event",
         "name": "MemoryHashSet",
         "inputs": [
             {
@@ -581,31 +482,6 @@
                 "type": "string",
                 "indexed": false,
                 "internalType": "string"
-            }
-        ],
-        "anonymous": false
-    },
-    {
-        "type": "event",
-        "name": "MemoryLogged",
-        "inputs": [
-            {
-                "name": "tokenId",
-                "type": "uint256",
-                "indexed": true,
-                "internalType": "uint256"
-            },
-            {
-                "name": "hash",
-                "type": "bytes32",
-                "indexed": true,
-                "internalType": "bytes32"
-            },
-            {
-                "name": "timestamp",
-                "type": "uint256",
-                "indexed": false,
-                "internalType": "uint256"
             }
         ],
         "anonymous": false

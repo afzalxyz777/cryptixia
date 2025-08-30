@@ -26,11 +26,17 @@ export default function Home() {
 
       {/* Link to Mint Page */}
       <Link href="/mint">
-  <button className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 mt-4 shadow-lg">
-    Go to Mint Page
-  </button>
-</Link>
+        <button className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 mt-4 shadow-lg">
+          Go to Mint Page
+        </button>
+      </Link>
 
+      {/* ✅ New Link to Agent Profile */}
+      <Link href="/agent/1">
+        <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mt-4 shadow-lg">
+          Go to Agent #1
+        </button>
+      </Link>
     </div>
   )
 }
