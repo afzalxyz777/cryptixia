@@ -1,6 +1,7 @@
 // server/api/embeddings.ts
 import { Router } from "express";
 import { upsert, query } from "../lib/vectorstore";
+import { embedText } from "./huggingface";  // 👈 import helper
 
 const router = Router();
 
@@ -36,4 +37,21 @@ router.post("/query", async (req, res) => {
   }
 });
 
+// ✅ Direct embedding route (optional, for debugging/testing)
+router.post("/embed", async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text) {
+      return res.status(400).json({ error: "Missing text" });
+    }
+
+    const embedding = await embedText(text);
+    res.json({ embedding });
+  } catch (err: any) {
+    console.error("Embed error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
+export { embedText }; // 👈 makes embedText reusable elsewhere

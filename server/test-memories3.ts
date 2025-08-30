@@ -1,70 +1,37 @@
-// server/test-memories3.ts
-import dotenv from "dotenv";
-dotenv.config({ path: ".env.local" });
-
-import { getPineconeIndex } from "./api/pinecone";
-import { embedText } from "./api/huggingface";
+// server/testmemories.ts
+import 'dotenv/config';
+import { embedText } from './api/huggingface';
+import { initPinecone } from './api/pinecone';
 
 async function main() {
-  const index = await getPineconeIndex();
-
-  // --- New Agent X memories (additive, not replacing old ones) ---
-  const newMemories = [
-    {
-      id: "memory_4",
-      metadata: {
-        agent_id: "agent_x_001",
-        text: "Agent X is fluent in multiple ancient languages, including Elvish and Draconic.",
-      },
-    },
-    {
-      id: "memory_5",
-      metadata: {
-        agent_id: "agent_x_001",
-        text: "Agent X once decrypted a forbidden cryptographic code that revealed a hidden guild conspiracy.",
-      },
-    },
-    {
-      id: "memory_6",
-      metadata: {
-        agent_id: "agent_x_001",
-        text: "Agent X often uses rare artifacts as diplomatic gifts to gain trust in negotiations.",
-      },
-    },
+  const memories = [
+    "Agent X negotiated a ceasefire between rival guilds in 2023.",
+    "Agent X is a master negotiator, skilled in persuasion and conflict resolution.",
+    "Known weakness: avoids direct combat, relies on diplomacy instead.",
+    "Recent success: secured an alliance by brokering a high-stakes deal in 2025."
   ];
 
-  console.log("📝 Storing new memories for Agent X (additive)...");
+  console.log("Embedding memories...");
+  const vectors = await Promise.all(memories.map((m) => embedText(m)));
 
-  const vectors = [];
-  for (const memory of newMemories) {
-    const embedding = await embedText(memory.metadata.text);
-    vectors.push({
-      id: memory.id,
-      values: embedding,
-      metadata: memory.metadata,
-    });
-  }
+  console.log("Upserting memories into Pinecone...");
+  const pc = initPinecone();
+  await pc.index(process.env.PINECONE_INDEX_NAME!).upsert(
+    vectors.map((values: any, i: any) => ({
+      id: `memory_${i}`,
+      values,
+      metadata: { text: memories[i], agent_id: "agent_x_001" }
+    }))
+  );
 
-  await index.upsert(vectors);
-  console.log("✅ New memories stored successfully! (Old ones kept)");
+  console.log("Querying Pinecone for: cryptography...");
+  const query = await pc.index(process.env.PINECONE_INDEX_NAME!).query({
+    vector: vectors[1],
+    topK: 2,
+    includeMetadata: true
+  });
 
-  // --- Fixed test queries ---
-  const testQueries = ["languages", "cryptography", "diplomatic gifts", "negotiation", "Agent X"];
-
-  for (const query of testQueries) {
-    console.log(`\n🔍 Querying for: "${query}"`);
-    const queryEmbedding = await embedText(query);
-
-    const results = await index.query({
-      vector: queryEmbedding,
-      topK: 3,
-      includeMetadata: true,
-    });
-
-    console.log("Results:", JSON.stringify(results.matches, null, 2));
-  }
+  console.log("Results:", JSON.stringify(query.matches, null, 2));
 }
 
-main().catch((err) => {
-  console.error("❌ Error in test-memories3.ts:", err);
-});
+main().catch(console.error);

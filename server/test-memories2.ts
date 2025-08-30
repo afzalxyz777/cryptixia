@@ -16,7 +16,7 @@ async function main() {
   const results = await searchMemories(agentId, "negotiation");
 
   console.log("📌 Results:");
-  results.forEach((res, idx) => {
+  results.forEach((res: any, idx: any) => {
     const score = res.score ?? 0; // fallback in case score is undefined
     console.log(
       `#${idx + 1} (score: ${score.toFixed(3)}) - ID: ${res.id}`

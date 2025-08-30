@@ -1,16 +1,63 @@
-import { upsertVector, queryVector } from "./api/pinecone";
+// server/api/pinecone.ts
+import { Pinecone } from "@pinecone-database/pinecone";
+import dotenv from "dotenv";
 
-async function main() {
-  // Example 3-dimensional vector
-  const testVector = [0.1, 0.2, 0.3];
+dotenv.config({ path: ".env.local" });
 
-  console.log("Upserting vector...");
-  await upsertVector("test-1", testVector, { name: "DemoAgent" });
+let pineconeClient: Pinecone | null = null;
 
-  console.log("Querying vector...");
-  const results = await queryVector(testVector, 3);
+export function initPinecone(): Pinecone {
+  if (!pineconeClient) {
+    const apiKey = process.env.PINECONE_API_KEY;
+    if (!apiKey) {
+      throw new Error("PINECONE_API_KEY is required in .env.local");
+    }
 
-  console.log("Results:", results);
+    pineconeClient = new Pinecone({
+      apiKey: apiKey,
+    });
+  }
+
+  return pineconeClient;
 }
 
-main().catch(console.error);
+export async function getPineconeIndex() {
+  const pc = initPinecone();
+  const indexName = process.env.PINECONE_INDEX_NAME;
+
+  if (!indexName) {
+    throw new Error("PINECONE_INDEX_NAME is required in .env.local");
+  }
+
+  return pc.index(indexName);
+}
+
+// Additional utility functions that your test files are expecting
+export async function upsertVector(
+  id: string,
+  values: number[],
+  metadata: Record<string, any>
+) {
+  const index = await getPineconeIndex();
+  return await index.upsert([
+    {
+      id,
+      values,
+      metadata,
+    },
+  ]);
+}
+
+export async function queryVector(
+  vector: number[],
+  topK: number = 5,
+  filter?: Record<string, any>
+) {
+  const index = await getPineconeIndex();
+  return await index.query({
+    vector,
+    topK,
+    includeMetadata: true,
+    filter,
+  });
+}

@@ -6,7 +6,7 @@ async function test(query: string) {
   const index = await getPineconeIndex();
 
   // Embed query
-  const queryVector = await embedText(query);
+  const queryVector = await embedText(query) as number[];
 
   // Query Pinecone
   const results = await index.query({

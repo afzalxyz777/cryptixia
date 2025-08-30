@@ -1,0 +1,15 @@
+{
+    "name": "Cryptixia Agent #1",
+    "description": "Your first AI Agent NFT",
+    "image": "https://your-server.com/images/agent1.png",
+    "attributes": [
+        {
+            "trait_type": "Intelligence",
+            "value": "High"
+        },
+        {
+            "trait_type": "Type",
+            "value": "AI Agent"
+        }
+    ]
+}

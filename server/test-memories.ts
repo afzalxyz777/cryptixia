@@ -3,12 +3,12 @@ import { embedText } from './api/embeddings';
 import { initPinecone } from './api/pinecone';
 
 async function main() {
-const memories = [
-  "Agent X negotiated a ceasefire between rival guilds in 2023.",
-  "Agent X is a master negotiator, skilled in persuasion and conflict resolution.",
-  "Known weakness: avoids direct combat, relies on diplomacy instead.",
-  "Recent success: secured an alliance by brokering a high-stakes deal in 2025."
-];
+  const memories = [
+    "Agent X negotiated a ceasefire between rival guilds in 2023.",
+    "Agent X is a master negotiator, skilled in persuasion and conflict resolution.",
+    "Known weakness: avoids direct combat, relies on diplomacy instead.",
+    "Recent success: secured an alliance by brokering a high-stakes deal in 2025."
+  ];
 
 
   console.log("Embedding memories...");

@@ -11,8 +11,24 @@ if (!HF_API_KEY) throw new Error("Missing HUGGINGFACE_API_KEY in .env.local");
 const hf = new HfInference(HF_API_KEY);
 const router = express.Router();
 
+//generateChatResponse
+export async function generateChatResponse(
+  message: string,
+  context: string[] = []
+): Promise<string> {
+  const fullPrompt = `${context.join("\n")}\nUser: ${message}\nAgent:`;
+
+  const response = await hf.textGeneration({
+    model: "gpt2", // ⚠️ replace with a better model, e.g. meta-llama/Llama-2-7b-chat
+    inputs: fullPrompt,
+    parameters: { max_new_tokens: 200, temperature: 0.7 }
+  });
+
+  return response.generated_text || "No response";
+}
+
 // Helper: Embed text
-async function embedText(text: string): Promise<number[]> {
+export async function embedText(text: string): Promise<number[]> {
   const response = await hf.featureExtraction({
     model: "sentence-transformers/all-MiniLM-L6-v2",
     inputs: text,
