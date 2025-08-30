@@ -1,44 +1,104 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
 
-# --- Config ---
-RPC_URL="http://127.0.0.1:8545"
-SCRIPT_PATH="script/DeployAIAgentNFT.s.sol:DeployAIAgentNFT"
-FRONTEND_ENV="./frontend/.env.local"
-SENDER="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
-PK="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" # anvil default #0 (ok for local)
+# scripts/deploy.sh
+# Deploy AgentNFT contract to Avalanche Fuji
 
-echo "▶ Deploying AgentNFT to $RPC_URL ..."
-forge script "$SCRIPT_PATH" \
-  --rpc-url "$RPC_URL" \
-  --broadcast \
-  --sender "$SENDER" \
-  --private-key "$PK"
+echo "🚀 Deploying AgentNFT to Avalanche Fuji..."
 
-# Find latest broadcast file
-BROADCAST_DIR="./broadcast/DeployAIAgentNFT.s.sol/31337"
-RUN_FILE="$(ls -t "$BROADCAST_DIR"/run-*.json | head -n1)"
-
-# Extract the deployed address using jq (install: `brew install jq` on macOS)
-ADDR=$(jq -r '.receipts[0].contractAddress // .transactions[0].contractAddress' "$RUN_FILE")
-
-if [[ -z "$ADDR" || "$ADDR" == "null" ]]; then
-  echo "❌ Could not extract contract address from $RUN_FILE"
-  exit 1
+# Load environment variables
+if [ -f .env.local ]; then
+    source .env.local
+else
+    echo "❌ Error: .env.local file not found"
+    exit 1
 fi
 
-echo "✅ Deployed AgentNFT at: $ADDR"
-echo "▶ Writing address to $FRONTEND_ENV ..."
+# Check required environment variables
+if [ -z "$DEPLOYER_PK" ]; then
+    echo "❌ Error: DEPLOYER_PK not set in .env.local"
+    exit 1
+fi
 
-# Ensure file exists
-touch "$FRONTEND_ENV"
+# Use primary RPC with fallback
+RPC_URL=${AVALANCHE_FUJI_RPC:-"https://api.avax-test.network/ext/bc/C/rpc"}
 
-# Remove existing line, then append fresh
-grep -v '^NEXT_PUBLIC_AGENTNFT_ADDRESS=' "$FRONTEND_ENV" > "$FRONTEND_ENV.tmp" || true
-mv "$FRONTEND_ENV.tmp" "$FRONTEND_ENV"
-echo "NEXT_PUBLIC_AGENTNFT_ADDRESS=$ADDR" >> "$FRONTEND_ENV"
+echo "🔧 Configuration:"
+echo "RPC URL: $RPC_URL"
+echo "Deployer: $(cast wallet address --private-key $DEPLOYER_PK)"
+echo
 
-# Also ensure RPC is present
-grep -q '^NEXT_PUBLIC_RPC_URL=' "$FRONTEND_ENV" || echo "NEXT_PUBLIC_RPC_URL=$RPC_URL" >> "$FRONTEND_ENV"
+# Compile contracts first
+echo "📦 Compiling contracts..."
+forge build
 
-echo "✅ Updated $FRONTEND_ENV"
+if [ $? -ne 0 ]; then
+    echo "❌ Compilation failed"
+    exit 1
+fi
+
+echo "✅ Compilation successful"
+echo
+
+# Deploy the contract
+echo "🎯 Deploying AgentNFT..."
+
+# Use forge create to deploy
+DEPLOYMENT_OUTPUT=$(forge create contracts/AgentNFT.sol:AgentNFT \
+    --rpc-url $RPC_URL \
+    --private-key $DEPLOYER_PK \
+    --gas-limit 3000000\
+    --broadcast)
+
+if [ $? -eq 0 ]; then
+    # Extract contract address from output
+    CONTRACT_ADDRESS=$(echo "$DEPLOYMENT_OUTPUT" | grep "Deployed to:" | awk '{print $3}')
+    
+    echo "✅ AgentNFT deployed successfully!"
+    echo "📍 Contract Address: $CONTRACT_ADDRESS"
+    echo
+    
+    # Update .env.local with new contract address
+    if [ ! -z "$CONTRACT_ADDRESS" ]; then
+        # Create backup of .env.local
+        cp .env.local .env.local.backup
+        
+        # Update or add NFT_CONTRACT_ADDRESS
+        if grep -q "NFT_CONTRACT_ADDRESS=" .env.local; then
+            sed -i.bak "s/NFT_CONTRACT_ADDRESS=.*/NFT_CONTRACT_ADDRESS=$CONTRACT_ADDRESS/" .env.local
+        else
+            echo "NFT_CONTRACT_ADDRESS=$CONTRACT_ADDRESS" >> .env.local
+        fi
+        
+        echo "✅ Updated .env.local with new contract address"
+    fi
+    
+    # Test basic contract functionality
+    echo "🧪 Testing contract..."
+    
+    # Test name function
+    CONTRACT_NAME=$(cast call $CONTRACT_ADDRESS "name()" --rpc-url $RPC_URL)
+    echo "Contract Name: $CONTRACT_NAME"
+    
+    # Test nextTokenId function
+    NEXT_TOKEN_ID=$(cast call $CONTRACT_ADDRESS "nextTokenId()" --rpc-url $RPC_URL)
+    echo "Next Token ID: $NEXT_TOKEN_ID"
+    
+    echo
+    echo "🎉 Deployment completed successfully!"
+    echo
+    echo "📋 Next steps:"
+    echo "1. Update your frontend with the new contract address"
+    echo "2. Add some test AVAX to your wallet: https://faucet.avax.network/"
+    echo "3. Test minting an NFT through your frontend"
+    echo
+    echo "📍 Contract Address: $CONTRACT_ADDRESS"
+    echo "🔗 Avalanche Fuji Explorer: https://testnet.snowtrace.io/address/$CONTRACT_ADDRESS"
+    
+else
+    echo "❌ Deployment failed"
+    echo "💡 Common issues:"
+    echo "   - Check your private key is correct"
+    echo "   - Ensure you have AVAX for gas on Fuji testnet"
+    echo "   - Verify RPC URL is working"
+    exit 1
+fi

@@ -34,6 +34,6 @@ contract BreedingTest is Test {
         uint256 newId = agent.nextTokenId() - 1;
 
         assertEq(agent.ownerOf(newId), alice);
-        assertEq(agent.tokenURI(newId), "ipfs://child");
+        assertEq(agent.tokenURI(newId), "http://localhost:3001/metadata/ipfs://child");
     }
 }

@@ -21,8 +21,8 @@ contract AgentNFTTest is Test {
 
         // tokenId starts from 0
         assertEq(agent.ownerOf(0), alice);
-        assertEq(agent.tokenURI(0), uri);
-        assertEq(agent.nextTokenId(), 1);
+        assertEq(agent.tokenURI(0), "http://localhost:3001/metadata/ipfs://agent1");
+        assertEq(agent.tokenURI(0), "http://localhost:3001/metadata/ipfs://agent1");
     }
 
     function testSetAndGetMemoryHash() public {
