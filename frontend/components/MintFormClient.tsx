@@ -6,7 +6,7 @@ import { avalancheFuji } from 'wagmi/chains';
 import NFT_ABI from "../contracts/AgentNFT.json";
 
 // New deployed contract address
-const NFT_CONTRACT_ADDRESS = "0x1159854A9c38EC6740016d7c7FD18Cf0a8f94727";
+const NFT_CONTRACT_ADDRESS = "0x9e1d2dBF31f5c0De12836aD7144D9a7CfE0e239A";
 
 function MintFormClient() {
     const { address, isConnected } = useAccount();
@@ -193,7 +193,7 @@ function MintFormClient() {
             )}
 
             {/* Contract Address Warning */}
-            {NFT_CONTRACT_ADDRESS === "0x1159854A9c38EC6740016d7c7FD18Cf0a8f94727" && (
+            {NFT_CONTRACT_ADDRESS === "0x9e1d2dBF31f5c0De12836aD7144D9a7CfE0e239A" && (
                 <div style={{ padding: '15px', backgroundColor: '#f8d7da', border: '2px solid #dc3545', borderRadius: '8px', marginTop: '20px' }}>
                     <h4>⚠️ IMPORTANT:</h4>
                     <p>Remember to update the contract address after redeployment!</p>
