@@ -62,15 +62,14 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
     setIsAgentTyping(true); // Show "agent is typing..."
 
     try {
-      // Call our server to get AI response
-      const response = await fetch('/api/openai', {
+      // ✅ Call your Hugging Face backend endpoint
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/huggingface/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: messageText,
-          agentId: agentId
+          text: messageText  // Note: using 'text' not 'message' to match your backend
         })
       });
 
@@ -79,7 +78,7 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
       }
 
       const data = await response.json();
-      const agentResponse = data.message || data.response || "I heard you, but I'm not sure how to respond!";
+      const agentResponse = data.reply || "I heard you, but I'm not sure how to respond!";
 
       // Add agent's response to chat
       const agentMessage: ChatMessage = {

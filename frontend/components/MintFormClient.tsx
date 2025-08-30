@@ -56,7 +56,7 @@ function MintFormClient() {
       setStatus('🔧 Creating agent profile...');
 
       // Step 1: Create agent profile and get memory_uri
-      const profileResponse = await fetch('/api/initAgentProfile', {
+      const profileResponse = await fetch('http://localhost:3001/api/initAgentProfile', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -91,7 +91,7 @@ function MintFormClient() {
         avatar_seed: Date.now() // For deterministic avatar generation
       };
 
-      const metadataResponse = await fetch('/api/pinMetadata', {
+      const metadataResponse = await fetch('http://localhost:3001/api/pinMetadata', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -111,7 +111,7 @@ export default function AgentProfile() {
           <h2 className="text-xl font-bold text-white mb-4">💬 Chat with Your Agent</h2>
           <ChatUI 
             agentId={id as string}
-            agentName={agent.name}
+            agentName={agent?.name || "Unknown Agent"}
           />
         </div>
 

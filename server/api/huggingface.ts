@@ -1,39 +1,47 @@
 // server/api/huggingface.ts
-import express, { Request, Response } from "express";
+import express from "express";
 import { HfInference } from "@huggingface/inference";
-import dotenv from "dotenv";
 
-dotenv.config({ path: ".env.local" });
-
-const HF_API_KEY = process.env.HUGGINGFACE_API_KEY;
-if (!HF_API_KEY) throw new Error("Missing HUGGINGFACE_API_KEY in .env.local");
-
-const hf = new HfInference(HF_API_KEY);
 const router = express.Router();
 
-// Helper: Embed text
-async function embedText(text: string): Promise<number[]> {
-  const response = await hf.featureExtraction({
-    model: "sentence-transformers/all-MiniLM-L6-v2",
-    inputs: text,
-  });
-
-  // Hugging Face returns `number[][]`, so flatten if needed
-  return Array.isArray(response[0]) ? (response[0] as number[]) : (response as number[]);
-}
-
-// ✅ POST /api/huggingface/embed
-router.post("/embed", async (req: Request, res: Response) => {
+// ✅ Initialize Hugging Face client with API key
+const hf = new HfInference(process.env.HUGGINGFACE_API_KEY as string);
+// Debug route to test HF API key
+router.get("/test", async (req, res) => {
+  try {
+    const response = await hf.chatCompletion({
+      model: "mistralai/Mistral-7B-Instruct-v0.2",
+      messages: [{ role: "user", content: "Hello" }],
+      max_tokens: 10,
+    });
+    res.json({ status: "HF API working", response: response.choices[0].message?.content });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message, details: err });
+  }
+});
+// ✅ POST /api/huggingface/chat
+router.post("/chat", async (req, res) => {
   try {
     const { text } = req.body;
-    if (!text) return res.status(400).json({ error: "Missing 'text' in request body" });
 
-    const embedding = await embedText(text);
-    return res.json({ embedding });
-  } catch (error: any) {
-    console.error("Error from HuggingFace:", error.message || error);
-    return res.status(500).json({ error: "Failed to generate embedding" });
+    if (!text) {
+      return res.status(400).json({ error: "No input text provided" });
+    }
+
+    // ✅ Call Hugging Face model (you can swap with Llama 2, Falcon, etc.)
+    const response = await hf.chatCompletion({
+      model: "mistralai/Mistral-7B-Instruct-v0.2", // good free instruct model
+      messages: [{ role: "user", content: text }],
+      max_tokens: 200,
+    });
+
+    // ✅ Return AI reply
+    return res.json({ reply: response.choices[0].message?.content });
+  } catch (err: any) {
+    console.error("Hugging Face API error:", err);
+    return res.status(500).json({ error: "Failed to get AI response" });
   }
 });
 
+// ✅ Export router for use in index.ts
 export default router;
