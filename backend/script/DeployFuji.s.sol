@@ -24,11 +24,7 @@ contract DeployFujiScript is Script {
 
         // Write to fuji deployment file
         string memory timestamp = vm.toString(block.timestamp);
-        string memory filename = string.concat(
-            "deployments/fuji-",
-            timestamp,
-            ".json"
-        );
+        string memory filename = string.concat("deployments/fuji-", timestamp, ".json");
 
         string memory json = string.concat(
             "{\n",
