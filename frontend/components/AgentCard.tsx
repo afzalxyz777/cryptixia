@@ -5,15 +5,15 @@ interface AgentCardProps {
   agent: {
     name: string;
     description: string;
-    personality: string;
-    traits: {
-      personality: string;
-      curious: boolean;
-      friendly: boolean;
-      cautious: boolean;
-      pragmatic: boolean;
+    personality?: string; // Make optional to handle undefined cases
+    traits?: {
+      personality?: string;
+      curious?: boolean;
+      friendly?: boolean;
+      cautious?: boolean;
+      pragmatic?: boolean;
     };
-    memory_uri: string;
+    memory_uri?: string;
     created_at: string;
   };
   tokenId: string;
@@ -21,7 +21,9 @@ interface AgentCardProps {
 }
 
 // Simple avatar generator based on personality
-const getAvatarColor = (personality: string) => {
+const getAvatarColor = (personality?: string) => {
+  if (!personality) return 'bg-gray-500';
+
   const colors: { [key: string]: string } = {
     friendly: 'bg-green-500',
     pragmatic: 'bg-blue-500',
@@ -31,7 +33,9 @@ const getAvatarColor = (personality: string) => {
   return colors[personality] || 'bg-gray-500';
 };
 
-const getPersonalityEmoji = (personality: string) => {
+const getPersonalityEmoji = (personality?: string) => {
+  if (!personality) return '🤖';
+
   const emojis: { [key: string]: string } = {
     friendly: '😊',
     pragmatic: '🧠',
@@ -45,6 +49,12 @@ export default function AgentCard({ agent, tokenId, showDetails = false }: Agent
   const avatarColor = getAvatarColor(agent.personality);
   const emoji = getPersonalityEmoji(agent.personality);
 
+  // Safe personality formatting
+  const formatPersonality = (personality?: string): string => {
+    if (!personality || typeof personality !== 'string') return 'Unknown';
+    return personality.charAt(0).toUpperCase() + personality.slice(1);
+  };
+
   return (
     <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700">
       {/* Header */}
@@ -53,7 +63,7 @@ export default function AgentCard({ agent, tokenId, showDetails = false }: Agent
         <div className={`w-16 h-16 ${avatarColor} rounded-full flex items-center justify-center text-2xl`}>
           {emoji}
         </div>
-        
+
         {/* Basic Info */}
         <div className="flex-1">
           <h3 className="text-xl font-bold text-white">{agent.name}</h3>
@@ -69,18 +79,18 @@ export default function AgentCard({ agent, tokenId, showDetails = false }: Agent
       <div className="mt-4">
         <div className="flex items-center space-x-2 mb-3">
           <span className="text-sm font-medium text-gray-300">Personality:</span>
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-            agent.personality === 'friendly' ? 'bg-green-100 text-green-800' :
-            agent.personality === 'pragmatic' ? 'bg-blue-100 text-blue-800' :
-            agent.personality === 'adventurous' ? 'bg-orange-100 text-orange-800' :
-            'bg-purple-100 text-purple-800'
-          }`}>
-            {agent.personality.charAt(0).toUpperCase() + agent.personality.slice(1)}
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${agent.personality === 'friendly' ? 'bg-green-100 text-green-800' :
+              agent.personality === 'pragmatic' ? 'bg-blue-100 text-blue-800' :
+                agent.personality === 'adventurous' ? 'bg-orange-100 text-orange-800' :
+                  agent.personality === 'cautious' ? 'bg-purple-100 text-purple-800' :
+                    'bg-gray-100 text-gray-800'
+            }`}>
+            {formatPersonality(agent.personality)}
           </span>
         </div>
 
         {/* Traits */}
-        {showDetails && (
+        {showDetails && agent.traits && (
           <div className="space-y-2">
             <span className="text-sm font-medium text-gray-300">Traits:</span>
             <div className="flex flex-wrap gap-2">
@@ -89,11 +99,10 @@ export default function AgentCard({ agent, tokenId, showDetails = false }: Agent
                 return (
                   <span
                     key={trait}
-                    className={`px-2 py-1 rounded text-xs ${
-                      value 
-                        ? 'bg-green-600 text-white' 
+                    className={`px-2 py-1 rounded text-xs ${value
+                        ? 'bg-green-600 text-white'
                         : 'bg-gray-600 text-gray-300'
-                    }`}
+                      }`}
                   >
                     {trait}: {value ? 'Yes' : 'No'}
                   </span>
@@ -121,7 +130,7 @@ export default function AgentCard({ agent, tokenId, showDetails = false }: Agent
       {/* Action Button */}
       {!showDetails && (
         <div className="mt-4">
-          <Link 
+          <Link
             href={`/agent/${tokenId}`}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg text-center block font-medium"
           >

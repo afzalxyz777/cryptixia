@@ -1,3 +1,4 @@
+// frontend/components/VoiceButton.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -28,26 +29,34 @@ export default function VoiceButton({ onSpeechResult, isDisabled }: VoiceButtonP
     rec.interimResults = false;
     rec.maxAlternatives = 1;
 
-    // ✅ When speech is recognized, call the callback function
+    // When speech is recognized, call the callback function
     rec.onresult = async (e: SpeechRecognitionEvent) => {
       const text = e.results?.[0]?.[0]?.transcript || "";
+      console.log('Speech recognized:', text); // Debug log
       setListening(false);
-      
+
       // If there's a callback (from ChatUI), use it
       if (onSpeechResult) {
         onSpeechResult(text);
       }
     };
 
-    rec.onerror = () => setListening(false);
-    rec.onend = () => setListening(false);
+    rec.onerror = (event) => {
+      console.error('Speech recognition error:', event);
+      setListening(false);
+    };
+
+    rec.onend = () => {
+      console.log('Speech recognition ended');
+      setListening(false);
+    };
 
     recRef.current = rec;
 
     return () => {
       try {
         recRef.current?.stop();
-      } catch {}
+      } catch { }
       recRef.current = null;
     };
   }, [onSpeechResult]);
@@ -55,9 +64,11 @@ export default function VoiceButton({ onSpeechResult, isDisabled }: VoiceButtonP
   const start = () => {
     if (!supported || !recRef.current || isDisabled) return;
     try {
+      console.log('Starting speech recognition...');
       setListening(true);
       recRef.current.start();
-    } catch {
+    } catch (error) {
+      console.error('Failed to start speech recognition:', error);
       setListening(false);
     }
   };
@@ -66,9 +77,9 @@ export default function VoiceButton({ onSpeechResult, isDisabled }: VoiceButtonP
     <button
       onClick={start}
       disabled={!supported || listening || isDisabled}
-      className="px-6 py-3 rounded-full bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold shadow-md"
+      className="px-6 py-3 rounded-full bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:opacity-50 text-white font-medium shadow-md transition-colors"
     >
-      {listening ? "🎧 Listening…" : supported ? "🎤 Speak" : "🚫 Not Supported"}
+      {listening ? "🎧 Listening..." : supported ? "🎤 Speak" : "🚫 Not Supported"}
     </button>
   );
 }

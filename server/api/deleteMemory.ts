@@ -1,5 +1,6 @@
+// server/api/deleteMemory.ts
 import { NextApiRequest, NextApiResponse } from "next";
-import { getPineconeIndex } from "../api/pinecone";
+import { getPineconeIndex } from "./pinecone";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -14,9 +15,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const index = await getPineconeIndex();
 
-    await index.delete({
-      ids: [memoryId],
-    });
+    // Use deleteOne instead of delete
+    await index.deleteOne(memoryId);
 
     console.log(`Deleted memory ${memoryId}`);
     res.status(200).json({ success: true });

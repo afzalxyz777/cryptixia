@@ -62,23 +62,27 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
     setIsAgentTyping(true); // Show "agent is typing..."
 
     try {
-      // ✅ Call your Hugging Face backend endpoint
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/huggingface/chat`, {
+      // Use the correct server URL - 127.0.0.1:3001
+      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://127.0.0.1:3001';
+      const response = await fetch(`${serverUrl}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          text: messageText  // Note: using 'text' not 'message' to match your backend
+          message: messageText,
+          tokenId: agentId,
+          agentName: agentName,
+          context: []
         })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get response from agent');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      const agentResponse = data.reply || "I heard you, but I'm not sure how to respond!";
+      const agentResponse = data.response || "I heard you, but I'm not sure how to respond!";
 
       // Add agent's response to chat
       const agentMessage: ChatMessage = {
@@ -94,13 +98,25 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
 
     } catch (error) {
       console.error('Chat error:', error);
+
+      // Provide helpful fallback response
+      const fallbackResponses = [
+        "I'm having some connection issues, but I'm still here to chat! 🤖",
+        "The server might be starting up. I can still respond though!",
+        "Connection hiccup! But I'm listening. What else would you like to talk about?",
+        "I'm having trouble connecting to my brain, but I'm still here! 😊"
+      ];
+
       const errorMessage: ChatMessage = {
         id: Date.now() + 1,
-        text: "Sorry, I'm having trouble right now. Try again in a moment! 🤖",
+        text: fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)],
         isUser: false,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
+
+      // Speak the error message too
+      speakText(errorMessage.text);
     } finally {
       setIsAgentTyping(false);
     }
@@ -125,6 +141,7 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
       {/* Chat Header */}
       <div className="bg-gray-700 px-4 py-3 rounded-t-lg border-b border-gray-600">
         <h3 className="text-white font-medium">Chat with {agentName}</h3>
+        <p className="text-xs text-gray-400">Agent ID: {agentId}</p>
       </div>
 
       {/* Messages Area */}
@@ -135,26 +152,35 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
             className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg text-sm ${
-                message.isUser
-                  ? 'bg-blue-600 text-white'  // Your messages in blue
-                  : 'bg-gray-600 text-white'  // Agent messages in gray
-              }`}
+              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg text-sm ${message.isUser
+                ? 'bg-blue-600 text-white'  // Your messages in blue
+                : 'bg-gray-600 text-white'  // Agent messages in gray
+                }`}
             >
               {message.text}
+              <div className="text-xs opacity-70 mt-1">
+                {message.timestamp.toLocaleTimeString()}
+              </div>
             </div>
           </div>
         ))}
-        
+
         {/* "Agent is typing..." indicator */}
         {isAgentTyping && (
           <div className="flex justify-start">
             <div className="bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">
-              <span className="animate-pulse">{agentName} is thinking...</span>
+              <div className="flex items-center space-x-1">
+                <span>{agentName} is thinking</span>
+                <div className="flex space-x-1">
+                  <div className="w-1 h-1 bg-white rounded-full animate-bounce"></div>
+                  <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+              </div>
             </div>
           </div>
         )}
-        
+
         {/* Invisible div to scroll to */}
         <div ref={messagesEndRef} />
       </div>
@@ -169,22 +195,23 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
             onChange={(e) => setTextInput(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Type a message..."
-            className="flex-1 bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:outline-none focus:border-blue-500"
+            disabled={isAgentTyping}
+            className="flex-1 bg-gray-700 text-white px-3 py-2 rounded-lg border border-gray-600 focus:outline-none focus:border-blue-500 disabled:opacity-50"
           />
-          
+
           {/* Send Button */}
           <button
             onClick={() => sendMessage(textInput)}
             disabled={!textInput.trim() || isAgentTyping}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium"
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
           >
             Send
           </button>
         </div>
-        
+
         {/* Voice Input */}
         <div className="mt-3 flex justify-center">
-          <VoiceButton 
+          <VoiceButton
             onSpeechResult={handleVoiceInput}
             isDisabled={isAgentTyping}
           />

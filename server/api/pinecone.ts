@@ -1,36 +1,47 @@
-// server/pinecone.ts
-import "dotenv/config";
-import { Pinecone } from "@pinecone-database/pinecone";
+// server/pinecone.ts - Fixed location and implementation
+import { Pinecone } from '@pinecone-database/pinecone';
 
-if (!process.env.PINECONE_API_KEY) {
-  throw new Error("Missing PINECONE_API_KEY in .env.local");
-}
-if (!process.env.PINECONE_INDEX_NAME) {
-  throw new Error("Missing PINECONE_INDEX_NAME in .env.local");
-}
+let pineconeInstance: Pinecone | null = null;
 
-let pinecone: Pinecone | null = null;
+export async function getPineconeClient(): Promise<Pinecone> {
+  if (!pineconeInstance) {
+    const apiKey = process.env.PINECONE_API_KEY;
 
-/**
- * Initialize Pinecone client (only once).
- */
-export function initPinecone() {
-  if (!pinecone) {
-    pinecone = new Pinecone({
-      apiKey: process.env.PINECONE_API_KEY!,
+    console.log("Initializing Pinecone client...");
+    console.log("API Key exists:", !!apiKey);
+
+    if (!apiKey) {
+      throw new Error('PINECONE_API_KEY is not set in environment variables');
+    }
+
+    pineconeInstance = new Pinecone({
+      apiKey: apiKey,
     });
-    console.log("✅ Pinecone client initialized");
+
+    console.log("Pinecone client initialized successfully");
   }
-  return pinecone;
+
+  return pineconeInstance;
 }
 
-/**
- * Get a Pinecone index instance.
- * Always uses the index name from `.env.local`
- */
 export async function getPineconeIndex() {
-  if (!pinecone) initPinecone(); // ensure initialized
-  const indexName = process.env.PINECONE_INDEX_NAME!;
-  console.log(`Connecting to Pinecone index: ${indexName}`);
-  return pinecone!.index(indexName);
+  try {
+    const client = await getPineconeClient();
+    const indexName = process.env.PINECONE_INDEX_NAME;
+
+    console.log("Getting Pinecone index...");
+    console.log("Index name:", indexName);
+
+    if (!indexName) {
+      throw new Error('PINECONE_INDEX_NAME is not set in environment variables');
+    }
+
+    const index = client.index(indexName);
+    console.log(`Connected to Pinecone index: ${indexName}`);
+
+    return index;
+  } catch (error) {
+    console.error("Error getting Pinecone index:", error);
+    throw error;
+  }
 }

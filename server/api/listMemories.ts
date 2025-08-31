@@ -1,3 +1,4 @@
+// server/api/listMemories.ts
 import { NextApiRequest, NextApiResponse } from "next";
 import { query as queryVectorStore } from "../lib/vectorstore";
 
@@ -11,17 +12,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const results = await queryVectorStore(
       tokenId as string,
-      "", // empty query to fetch all? Pinecone doesn’t support empty → can use dummy query and topK
+      "memory", // Use a generic query term instead of empty string
       Number(topK) || 10
     );
 
-    // Format results with timestamp + text
+    // Format results with null checks
     const memories = results.map((match) => ({
       id: match.id,
-      text: match.metadata.text,
-      timestamp: match.id.split("-")[1], // assuming id format: `${userId}-${Date.now()}`
-      metadata: match.metadata,
-      score: match.score, // optional, for debugging
+      text: match.metadata?.text || 'No text available',
+      timestamp: match.id.split("-")[1] || Date.now().toString(),
+      metadata: match.metadata || {},
+      score: match.score || 0,
     }));
 
     res.status(200).json({ memories });

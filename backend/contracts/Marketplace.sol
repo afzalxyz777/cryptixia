@@ -2,47 +2,89 @@
 pragma solidity ^0.8.20;
 
 import "./AgentNFT.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract Marketplace {
+contract Marketplace is ReentrancyGuard {
     AgentNFT public agentNFT;
 
     struct Listing {
-        address seller;
         uint256 tokenId;
-        uint256 price; // in wei
+        address seller;
+        uint256 price;
+        bool active;
     }
 
     mapping(uint256 => Listing) public listings;
 
-    event Listed(uint256 indexed tokenId, address indexed seller, uint256 price);
-    event Bought(uint256 indexed tokenId, address indexed buyer, uint256 price);
+    event NFTListed(
+        uint256 indexed tokenId,
+        address indexed seller,
+        uint256 price
+    );
+    event NFTSold(
+        uint256 indexed tokenId,
+        address indexed seller,
+        address indexed buyer,
+        uint256 price
+    );
+    event ListingCancelled(uint256 indexed tokenId, address indexed seller);
 
     constructor(address _agentNFT) {
         agentNFT = AgentNFT(_agentNFT);
     }
 
-    // List an NFT for sale
     function list(uint256 tokenId, uint256 price) external {
-        require(agentNFT.ownerOf(tokenId) == msg.sender, "Not owner");
-        listings[tokenId] = Listing(msg.sender, tokenId, price);
-        emit Listed(tokenId, msg.sender, price);
+        require(agentNFT.ownerOf(tokenId) == msg.sender, "Not the owner");
+        require(price > 0, "Price must be greater than 0");
+        require(
+            agentNFT.getApproved(tokenId) == address(this) ||
+                agentNFT.isApprovedForAll(msg.sender, address(this)),
+            "Marketplace not approved"
+        );
+
+        listings[tokenId] = Listing({
+            tokenId: tokenId,
+            seller: msg.sender,
+            price: price,
+            active: true
+        });
+
+        emit NFTListed(tokenId, msg.sender, price);
     }
 
-    // Buy an NFT
-    function buy(uint256 tokenId) external payable {
-        Listing memory item = listings[tokenId];
-        require(item.price > 0, "Not for sale");
-        require(msg.value >= item.price, "Insufficient payment");
+    function buy(uint256 tokenId) external payable nonReentrant {
+        Listing memory listing = listings[tokenId];
+        require(listing.active, "NFT not for sale");
+        require(msg.value == listing.price, "Incorrect payment amount");
+        require(
+            agentNFT.ownerOf(tokenId) == listing.seller,
+            "Seller no longer owns NFT"
+        );
 
-        // Transfer NFT to buyer
-        agentNFT.safeTransferFrom(item.seller, msg.sender, tokenId);
+        // Mark as inactive first
+        listings[tokenId].active = false;
 
-        // Transfer funds to seller
-        payable(item.seller).transfer(msg.value);
+        // Transfer NFT
+        agentNFT.safeTransferFrom(listing.seller, msg.sender, tokenId);
 
-        // Clear listing
-        delete listings[tokenId];
+        // Transfer payment
+        (bool success, ) = listing.seller.call{value: msg.value}("");
+        require(success, "Payment transfer failed");
 
-        emit Bought(tokenId, msg.sender, item.price);
+        emit NFTSold(tokenId, listing.seller, msg.sender, listing.price);
+    }
+
+    function cancelListing(uint256 tokenId) external {
+        require(listings[tokenId].seller == msg.sender, "Not your listing");
+        require(listings[tokenId].active, "Listing not active");
+
+        listings[tokenId].active = false;
+        emit ListingCancelled(tokenId, msg.sender);
+    }
+
+    function getListing(
+        uint256 tokenId
+    ) external view returns (Listing memory) {
+        return listings[tokenId];
     }
 }

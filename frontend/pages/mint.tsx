@@ -11,6 +11,29 @@ export default function MintPage() {
     setMounted(true);
   }, []);
 
+  // Handle voice input
+  const handleVoiceInput = async (transcript: string) => {
+    console.log("Voice input received:", transcript);
+    setResponse(`You said: "${transcript}"`);
+
+    // Optional: Send to AI for processing
+    try {
+      const aiResponse = await fetch('http://localhost:3001/api/huggingface/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: transcript })
+      });
+
+      if (aiResponse.ok) {
+        const data = await aiResponse.json();
+        setResponse(data.reply || data.response || "AI received your message!");
+      }
+    } catch (error) {
+      console.error("Error sending to AI:", error);
+      setResponse(`Voice recognized: "${transcript}" (AI processing failed)`);
+    }
+  };
+
   if (!mounted) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-gray-900">
@@ -28,7 +51,7 @@ export default function MintPage() {
 
       {/* Voice Input */}
       <div className="mt-8 w-full max-w-md">
-        <VoiceButton onResponse={(msg: string) => setResponse(msg)} />
+        <VoiceButton onSpeechResult={handleVoiceInput} />
 
         {response && (
           <div className="mt-4 p-4 rounded-xl bg-gray-800 text-white shadow text-left">
