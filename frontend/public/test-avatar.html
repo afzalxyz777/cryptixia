@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Avatar Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    #avatar {
+      margin-top: 20px;
+      width: 200px;
+      height: 200px;
+      border: 2px solid #333;
+      border-radius: 10px;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+  <h1>Cryptixia Avatar Test</h1>
+  <p>Enter a tokenId and click "Generate":</p>
+
+  <input type="number" id="tokenId" value="1" min="0" />
+  <button onclick="generateAvatar()">Generate</button>
+
+  <div>
+    <h3>Preview:</h3>
+    <img id="avatar" src="" alt="Generated Avatar" />
+  </div>
+
+  <script>
+    async function generateAvatar() {
+      const tokenId = document.getElementById('tokenId').value;
+      const avatar = document.getElementById('avatar');
+      avatar.src = `http://127.0.0.1:3001/api/generateAvatar/${tokenId}`;
+    }
+  </script>
+</body>
+</html>

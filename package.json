@@ -1,5 +1,7 @@
 {
   "dependencies": {
+    "@dicebear/collection": "^9.2.4",
+    "@dicebear/core": "^9.2.4",
     "@huggingface/inference": "^4.7.1",
     "@pinecone-database/pinecone": "^6.1.2",
     "@types/uuid": "^10.0.0",

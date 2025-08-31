@@ -4,6 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import chatRoutes from './api/chat';
 import huggingfaceRoutes from './api/huggingface';
+import generateAvatarHandler from './api/generateAvatar'; // 👈 new import
 
 // Load environment variables
 dotenv.config({ path: '.env.local' });
@@ -60,31 +61,8 @@ app.use('/api/chat', chatRoutes);
 // Mount HuggingFace API routes
 app.use('/api/huggingface', huggingfaceRoutes);
 
-// Add metadata endpoint for NFTs
-app.get('/metadata/:id.json', (req: Request, res: Response) => {
-  const { id } = req.params;
-  console.log(`Metadata requested for token ${id}`);
-
-  // Return NFT metadata
-  res.json({
-    name: `Cryptixia Agent #${id}`,
-    description: "Your first AI Agent NFT",
-    image: "https://your-server.com/images/agent1.png",
-    attributes: [
-      {
-        trait_type: "Intelligence",
-        value: "High"
-      },
-      {
-        trait_type: "Type",
-        value: "AI Agent"
-      }
-    ]
-  });
-});
-
-// Add HuggingFace chat endpoint alias (for compatibility)
-app.use('/api/huggingface/chat', chatRoutes);
+// Avatar generator endpoint 👇
+app.get('/api/generateAvatar', generateAvatarHandler);
 
 // Add metadata endpoint for NFTs
 app.get('/metadata/:id.json', (req: Request, res: Response) => {
@@ -124,6 +102,7 @@ app.use((req: Request, res: Response) => {
 const server = app.listen(PORT, HOST, () => {
   console.log(`🚀 Cryptixia server running at http://${HOST}:${PORT}`);
   console.log(`📱 Chat API available at http://${HOST}:${PORT}/api/chat`);
+  console.log(`🎨 Avatar API available at http://${HOST}:${PORT}/api/generateAvatar`);
 });
 
 // Handle server errors
