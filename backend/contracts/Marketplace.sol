@@ -16,17 +16,8 @@ contract Marketplace is ReentrancyGuard {
 
     mapping(uint256 => Listing) public listings;
 
-    event NFTListed(
-        uint256 indexed tokenId,
-        address indexed seller,
-        uint256 price
-    );
-    event NFTSold(
-        uint256 indexed tokenId,
-        address indexed seller,
-        address indexed buyer,
-        uint256 price
-    );
+    event NFTListed(uint256 indexed tokenId, address indexed seller, uint256 price);
+    event NFTSold(uint256 indexed tokenId, address indexed seller, address indexed buyer, uint256 price);
     event ListingCancelled(uint256 indexed tokenId, address indexed seller);
 
     constructor(address _agentNFT) {
@@ -37,17 +28,11 @@ contract Marketplace is ReentrancyGuard {
         require(agentNFT.ownerOf(tokenId) == msg.sender, "Not the owner");
         require(price > 0, "Price must be greater than 0");
         require(
-            agentNFT.getApproved(tokenId) == address(this) ||
-                agentNFT.isApprovedForAll(msg.sender, address(this)),
+            agentNFT.getApproved(tokenId) == address(this) || agentNFT.isApprovedForAll(msg.sender, address(this)),
             "Marketplace not approved"
         );
 
-        listings[tokenId] = Listing({
-            tokenId: tokenId,
-            seller: msg.sender,
-            price: price,
-            active: true
-        });
+        listings[tokenId] = Listing({tokenId: tokenId, seller: msg.sender, price: price, active: true});
 
         emit NFTListed(tokenId, msg.sender, price);
     }
@@ -56,10 +41,7 @@ contract Marketplace is ReentrancyGuard {
         Listing memory listing = listings[tokenId];
         require(listing.active, "NFT not for sale");
         require(msg.value == listing.price, "Incorrect payment amount");
-        require(
-            agentNFT.ownerOf(tokenId) == listing.seller,
-            "Seller no longer owns NFT"
-        );
+        require(agentNFT.ownerOf(tokenId) == listing.seller, "Seller no longer owns NFT");
 
         // Mark as inactive first
         listings[tokenId].active = false;
@@ -68,7 +50,7 @@ contract Marketplace is ReentrancyGuard {
         agentNFT.safeTransferFrom(listing.seller, msg.sender, tokenId);
 
         // Transfer payment
-        (bool success, ) = listing.seller.call{value: msg.value}("");
+        (bool success,) = listing.seller.call{value: msg.value}("");
         require(success, "Payment transfer failed");
 
         emit NFTSold(tokenId, listing.seller, msg.sender, listing.price);
@@ -82,9 +64,7 @@ contract Marketplace is ReentrancyGuard {
         emit ListingCancelled(tokenId, msg.sender);
     }
 
-    function getListing(
-        uint256 tokenId
-    ) external view returns (Listing memory) {
+    function getListing(uint256 tokenId) external view returns (Listing memory) {
         return listings[tokenId];
     }
 }
