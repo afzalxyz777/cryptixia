@@ -1,7 +1,6 @@
-// server/api/generateAvatar.ts
 import { Request, Response } from "express";
 import { createAvatar } from "@dicebear/core";
-import { bottts } from "@dicebear/collection"; // avatar style
+import { bottts } from "@dicebear/collection";
 
 export default function generateAvatarHandler(req: Request, res: Response) {
   try {
@@ -9,13 +8,9 @@ export default function generateAvatarHandler(req: Request, res: Response) {
     const seed = String(req.query.seed ?? "default");
     const size = Number(req.query.size ?? 128);
 
-    // deterministic seed
     const avatarSeed = `${tokenId}-${seed}`;
 
-    const svg = createAvatar(bottts, {
-      seed: avatarSeed,
-      size,
-    }).toString();
+    const svg = createAvatar(bottts, { seed: avatarSeed, size }).toString();
 
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Content-Type", "image/svg+xml; charset=utf-8");
