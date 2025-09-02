@@ -46,8 +46,11 @@ const getPersonalityEmoji = (personality?: string) => {
 };
 
 export default function AgentCard({ agent, tokenId, showDetails = false }: AgentCardProps) {
-  const avatarColor = getAvatarColor(agent.personality);
-  const emoji = getPersonalityEmoji(agent.personality);
+  // FIXED: Check both personality locations
+  const actualPersonality = agent.personality || agent.traits?.personality || '';
+  
+  const avatarColor = getAvatarColor(actualPersonality);
+  const emoji = getPersonalityEmoji(actualPersonality);
 
   // Safe personality formatting
   const formatPersonality = (personality?: string): string => {
@@ -79,13 +82,13 @@ export default function AgentCard({ agent, tokenId, showDetails = false }: Agent
       <div className="mt-4">
         <div className="flex items-center space-x-2 mb-3">
           <span className="text-sm font-medium text-gray-300">Personality:</span>
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${agent.personality === 'friendly' ? 'bg-green-100 text-green-800' :
-              agent.personality === 'pragmatic' ? 'bg-blue-100 text-blue-800' :
-                agent.personality === 'adventurous' ? 'bg-orange-100 text-orange-800' :
-                  agent.personality === 'cautious' ? 'bg-purple-100 text-purple-800' :
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${actualPersonality === 'friendly' ? 'bg-green-100 text-green-800' :
+              actualPersonality === 'pragmatic' ? 'bg-blue-100 text-blue-800' :
+                actualPersonality === 'adventurous' ? 'bg-orange-100 text-orange-800' :
+                  actualPersonality === 'cautious' ? 'bg-purple-100 text-purple-800' :
                     'bg-gray-100 text-gray-800'
             }`}>
-            {formatPersonality(agent.personality)}
+            {formatPersonality(actualPersonality)}
           </span>
         </div>
 

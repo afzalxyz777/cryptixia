@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@huggingface/inference": "^4.7.1",
+    "path-to-regexp": "^8.2.0"
+  }
+}
