@@ -51,12 +51,7 @@ contract BreedingTest is Test, IERC721Receiver {
     }
 
     // IERC721Receiver implementation for test contract
-    function onERC721Received(
-        address,
-        address,
-        uint256,
-        bytes calldata
-    ) external pure override returns (bytes4) {
+    function onERC721Received(address, address, uint256, bytes calldata) external pure override returns (bytes4) {
         return IERC721Receiver.onERC721Received.selector;
     }
 
@@ -307,19 +302,13 @@ contract BreedingTest is Test, IERC721Receiver {
         vm.prank(alice);
         breeding.breed{value: 0.01 ether}(0, 1);
 
-        console.log(
-            "Contract balance after breeding:",
-            address(breeding).balance
-        );
+        console.log("Contract balance after breeding:", address(breeding).balance);
         console.log("Owner balance before withdrawal:", owner.balance);
 
         // This should work if everything is set up correctly
         breeding.withdrawFees();
 
         console.log("Owner balance after withdrawal:", owner.balance);
-        console.log(
-            "Contract balance after withdrawal:",
-            address(breeding).balance
-        );
+        console.log("Contract balance after withdrawal:", address(breeding).balance);
     }
 }

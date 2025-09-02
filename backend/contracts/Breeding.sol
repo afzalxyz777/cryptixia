@@ -17,12 +17,7 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
     uint256 public breedingCooldown = 1 hours;
 
     // Events
-    event AgentBred(
-        uint256 indexed parentA,
-        uint256 indexed parentB,
-        uint256 indexed childId,
-        address breeder
-    );
+    event AgentBred(uint256 indexed parentA, uint256 indexed parentB, uint256 indexed childId, address breeder);
     event BreedingFeeUpdated(uint256 newFee);
     event CooldownUpdated(uint256 newCooldown);
 
@@ -36,10 +31,7 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
      * @param parentB Token ID of second parent
      * @return childId Token ID of the newly created child
      */
-    function breed(
-        uint256 parentA,
-        uint256 parentB
-    ) external payable nonReentrant returns (uint256 childId) {
+    function breed(uint256 parentA, uint256 parentB) external payable nonReentrant returns (uint256 childId) {
         // Validate inputs
         require(parentA != parentB, "Breeding: Cannot breed with self");
         require(agentNFT.exists(parentA), "Breeding: Parent A does not exist");
@@ -49,42 +41,22 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
         address parentAOwner = agentNFT.ownerOf(parentA);
         address parentBOwner = agentNFT.ownerOf(parentB);
 
-        require(
-            _isAuthorizedForToken(parentA, parentAOwner),
-            "Breeding: Not authorized for parent A"
-        );
+        require(_isAuthorizedForToken(parentA, parentAOwner), "Breeding: Not authorized for parent A");
 
         // Enhanced authorization check for parentB
         // Allow if caller is authorized OR both owners approved the contract
-        bool callerAuthorizedForB = _isDirectlyAuthorizedForToken(
-            parentB,
-            parentBOwner
-        );
-        bool bothOwnersApprovedContract = agentNFT.isApprovedForAll(
-            parentAOwner,
-            address(this)
-        ) && agentNFT.isApprovedForAll(parentBOwner, address(this));
+        bool callerAuthorizedForB = _isDirectlyAuthorizedForToken(parentB, parentBOwner);
+        bool bothOwnersApprovedContract = agentNFT.isApprovedForAll(parentAOwner, address(this))
+            && agentNFT.isApprovedForAll(parentBOwner, address(this));
 
-        require(
-            callerAuthorizedForB || bothOwnersApprovedContract,
-            "Breeding: Not authorized for parent B"
-        );
+        require(callerAuthorizedForB || bothOwnersApprovedContract, "Breeding: Not authorized for parent B");
 
         // Check cooldown
-        require(
-            block.timestamp >= lastBreedTime[parentA] + breedingCooldown,
-            "Breeding: Parent A on cooldown"
-        );
-        require(
-            block.timestamp >= lastBreedTime[parentB] + breedingCooldown,
-            "Breeding: Parent B on cooldown"
-        );
+        require(block.timestamp >= lastBreedTime[parentA] + breedingCooldown, "Breeding: Parent A on cooldown");
+        require(block.timestamp >= lastBreedTime[parentB] + breedingCooldown, "Breeding: Parent B on cooldown");
 
         // Check breeding fee
-        require(
-            msg.value >= breedingFee,
-            "Breeding: Insufficient breeding fee"
-        );
+        require(msg.value >= breedingFee, "Breeding: Insufficient breeding fee");
 
         // Get parent traits
         string[] memory traitsA = agentNFT.getTraits(parentA);
@@ -126,10 +98,7 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
     /**
      * @dev Combine traits from two parents to create child traits
      */
-    function _combineTraits(
-        string[] memory traitsA,
-        string[] memory traitsB
-    ) internal pure returns (string[] memory) {
+    function _combineTraits(string[] memory traitsA, string[] memory traitsB) internal pure returns (string[] memory) {
         // Simple trait mixing: combine all unique traits
         // In production, this would be more sophisticated
 
@@ -168,46 +137,25 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
     /**
      * @dev Generate token URI for child based on parents
      */
-    function _generateChildTokenURI(
-        uint256 parentA,
-        uint256 parentB
-    ) internal pure returns (string memory) {
+    function _generateChildTokenURI(uint256 parentA, uint256 parentB) internal pure returns (string memory) {
         // Simple implementation - in production this would call IPFS service
-        return
-            string(
-                abi.encodePacked(
-                    "ipfs://QmChild",
-                    _toString(parentA),
-                    "x",
-                    _toString(parentB)
-                )
-            );
+        return string(abi.encodePacked("ipfs://QmChild", _toString(parentA), "x", _toString(parentB)));
     }
 
     /**
      * @dev Check if caller is authorized to use a token for breeding (original logic)
      */
-    function _isAuthorizedForToken(
-        uint256 tokenId,
-        address tokenOwner
-    ) internal view returns (bool) {
-        return
-            msg.sender == tokenOwner ||
-            agentNFT.getApproved(tokenId) == msg.sender ||
-            agentNFT.isApprovedForAll(tokenOwner, msg.sender);
+    function _isAuthorizedForToken(uint256 tokenId, address tokenOwner) internal view returns (bool) {
+        return msg.sender == tokenOwner || agentNFT.getApproved(tokenId) == msg.sender
+            || agentNFT.isApprovedForAll(tokenOwner, msg.sender);
     }
 
     /**
      * @dev Check direct authorization (without contract approval fallback)
      */
-    function _isDirectlyAuthorizedForToken(
-        uint256 tokenId,
-        address tokenOwner
-    ) internal view returns (bool) {
-        return
-            msg.sender == tokenOwner ||
-            agentNFT.getApproved(tokenId) == msg.sender ||
-            agentNFT.isApprovedForAll(tokenOwner, msg.sender);
+    function _isDirectlyAuthorizedForToken(uint256 tokenId, address tokenOwner) internal view returns (bool) {
+        return msg.sender == tokenOwner || agentNFT.getApproved(tokenId) == msg.sender
+            || agentNFT.isApprovedForAll(tokenOwner, msg.sender);
     }
 
     /**
@@ -256,9 +204,7 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
         return block.timestamp >= lastBreedTime[tokenId] + breedingCooldown;
     }
 
-    function getBreedingCooldownRemaining(
-        uint256 tokenId
-    ) external view returns (uint256) {
+    function getBreedingCooldownRemaining(uint256 tokenId) external view returns (uint256) {
         uint256 cooldownEnd = lastBreedTime[tokenId] + breedingCooldown;
         if (block.timestamp >= cooldownEnd) {
             return 0;

@@ -32,10 +32,7 @@ contract AgentNFTTest is Test {
         agent.mint(alice, TEST_TOKEN_URI);
 
         assertEq(agent.ownerOf(0), alice);
-        assertEq(
-            agent.tokenURI(0),
-            "http://localhost:3001/metadata/ipfs://QmTestMetadata123"
-        );
+        assertEq(agent.tokenURI(0), "http://localhost:3001/metadata/ipfs://QmTestMetadata123");
         assertEq(agent.nextTokenId(), 1);
     }
 
@@ -50,10 +47,7 @@ contract AgentNFTTest is Test {
         agent.publicMint(TEST_TOKEN_URI, traits);
 
         assertEq(agent.ownerOf(0), user1);
-        assertEq(
-            agent.tokenURI(0),
-            "http://localhost:3001/metadata/ipfs://QmTestMetadata123"
-        );
+        assertEq(agent.tokenURI(0), "http://localhost:3001/metadata/ipfs://QmTestMetadata123");
 
         // Check traits were set
         string[] memory storedTraits = agent.getTraits(0);

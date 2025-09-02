@@ -19,22 +19,10 @@ contract AgentNFT is ERC721URIStorage, Ownable {
     mapping(uint256 => string) private _agentAvatarHash;
 
     // Events
-    event AgentMinted(
-        uint256 indexed tokenId,
-        address indexed owner,
-        string tokenUri
-    );
+    event AgentMinted(uint256 indexed tokenId, address indexed owner, string tokenUri);
     event MemoryHashSet(uint256 indexed tokenId, string memoryHash);
-    event MemoryLogged(
-        uint256 indexed tokenId,
-        bytes32 indexed hash,
-        uint256 timestamp
-    );
-    event MemoryForgotten(
-        uint256 indexed tokenId,
-        bytes32 indexed hash,
-        uint256 timestamp
-    );
+    event MemoryLogged(uint256 indexed tokenId, bytes32 indexed hash, uint256 timestamp);
+    event MemoryForgotten(uint256 indexed tokenId, bytes32 indexed hash, uint256 timestamp);
 
     // NEW FOR DAY 9: Avatar and trait events
     event TraitsUpdated(uint256 indexed tokenId, string[] traits);
@@ -51,10 +39,7 @@ contract AgentNFT is ERC721URIStorage, Ownable {
     }
 
     // Add public mint function with traits initialization
-    function publicMint(
-        string memory tokenUri,
-        string[] memory initialTraits
-    ) external {
+    function publicMint(string memory tokenUri, string[] memory initialTraits) external {
         uint256 tokenId = nextTokenId;
         _safeMint(msg.sender, tokenId);
         _setTokenURI(tokenId, tokenUri);
@@ -72,10 +57,8 @@ contract AgentNFT is ERC721URIStorage, Ownable {
         address tokenOwner = ownerOf(tokenId); // will revert if token does not exist
 
         require(
-            msg.sender == tokenOwner ||
-                msg.sender == owner() ||
-                getApproved(tokenId) == msg.sender ||
-                isApprovedForAll(tokenOwner, msg.sender),
+            msg.sender == tokenOwner || msg.sender == owner() || getApproved(tokenId) == msg.sender
+                || isApprovedForAll(tokenOwner, msg.sender),
             "AgentNFT: Not authorized"
         );
 
@@ -88,10 +71,8 @@ contract AgentNFT is ERC721URIStorage, Ownable {
         address tokenOwner = ownerOf(tokenId);
 
         require(
-            msg.sender == tokenOwner ||
-                msg.sender == owner() ||
-                getApproved(tokenId) == msg.sender ||
-                isApprovedForAll(tokenOwner, msg.sender),
+            msg.sender == tokenOwner || msg.sender == owner() || getApproved(tokenId) == msg.sender
+                || isApprovedForAll(tokenOwner, msg.sender),
             "AgentNFT: Not authorized"
         );
 
@@ -104,10 +85,8 @@ contract AgentNFT is ERC721URIStorage, Ownable {
         address tokenOwner = ownerOf(tokenId);
 
         require(
-            msg.sender == tokenOwner ||
-                msg.sender == owner() ||
-                getApproved(tokenId) == msg.sender ||
-                isApprovedForAll(tokenOwner, msg.sender),
+            msg.sender == tokenOwner || msg.sender == owner() || getApproved(tokenId) == msg.sender
+                || isApprovedForAll(tokenOwner, msg.sender),
             "AgentNFT: Not authorized"
         );
 
@@ -120,10 +99,8 @@ contract AgentNFT is ERC721URIStorage, Ownable {
         address tokenOwner = ownerOf(tokenId); // will revert if token does not exist
 
         require(
-            msg.sender == tokenOwner ||
-                msg.sender == owner() ||
-                getApproved(tokenId) == msg.sender ||
-                isApprovedForAll(tokenOwner, msg.sender),
+            msg.sender == tokenOwner || msg.sender == owner() || getApproved(tokenId) == msg.sender
+                || isApprovedForAll(tokenOwner, msg.sender),
             "AgentNFT: Not authorized"
         );
 
@@ -136,10 +113,8 @@ contract AgentNFT is ERC721URIStorage, Ownable {
         address tokenOwner = ownerOf(tokenId); // will revert if token does not exist
 
         require(
-            msg.sender == tokenOwner ||
-                msg.sender == owner() ||
-                getApproved(tokenId) == msg.sender ||
-                isApprovedForAll(tokenOwner, msg.sender),
+            msg.sender == tokenOwner || msg.sender == owner() || getApproved(tokenId) == msg.sender
+                || isApprovedForAll(tokenOwner, msg.sender),
             "AgentNFT: Not authorized"
         );
 
@@ -147,42 +122,32 @@ contract AgentNFT is ERC721URIStorage, Ownable {
     }
 
     // View memory hash for a tokenId
-    function getMemoryHash(
-        uint256 tokenId
-    ) external view returns (string memory) {
+    function getMemoryHash(uint256 tokenId) external view returns (string memory) {
         // If token doesn't exist, ownerOf will revert
         ownerOf(tokenId);
         return _memoryHashes[tokenId];
     }
 
     // NEW FOR DAY 9: Get agent traits
-    function getTraits(
-        uint256 tokenId
-    ) external view returns (string[] memory) {
+    function getTraits(uint256 tokenId) external view returns (string[] memory) {
         ownerOf(tokenId); // will revert if token does not exist
         return _agentTraits[tokenId];
     }
 
     // NEW FOR DAY 9: Get avatar hash
-    function getAvatarHash(
-        uint256 tokenId
-    ) external view returns (string memory) {
+    function getAvatarHash(uint256 tokenId) external view returns (string memory) {
         ownerOf(tokenId); // will revert if token does not exist
         return _agentAvatarHash[tokenId];
     }
 
     // Get memory audit log for a tokenId
-    function getMemoryAuditLog(
-        uint256 tokenId
-    ) external view returns (bytes32[] memory) {
+    function getMemoryAuditLog(uint256 tokenId) external view returns (bytes32[] memory) {
         ownerOf(tokenId); // will revert if token does not exist
         return _memoryAuditLog[tokenId];
     }
 
     // Get memory audit log count
-    function getMemoryAuditLogCount(
-        uint256 tokenId
-    ) external view returns (uint256) {
+    function getMemoryAuditLogCount(uint256 tokenId) external view returns (uint256) {
         ownerOf(tokenId); // will revert if token does not exist
         return _memoryAuditLog[tokenId].length;
     }
