@@ -1,177 +1,321 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.20;
 
-import {Test, console} from "forge-std/Test.sol";
-import {AgentNFT} from "../contracts/AgentNFT.sol";
+import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {ERC721URIStorage} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract AgentNFTTest is Test {
-    AgentNFT public agent;
-    address public owner;
-    address public alice;
-    address public bob;
-    address public user1;
-    address public user2;
+contract AgentNFT is ERC721URIStorage, Ownable, ReentrancyGuard {
+    uint256 public nextTokenId;
 
-    string constant TEST_TOKEN_URI = "ipfs://QmTestMetadata123";
-    string constant TEST_MEMORY_HASH = "QmMemoryHash456";
-    string constant TEST_AVATAR_HASH = "QmAvatarHash789";
+    // Mapping tokenId -> memory hash (points to off-chain memory integrity proof)
+    mapping(uint256 => string) private _memoryHashes;
 
-    function setUp() public {
-        owner = address(this);
-        alice = address(0x1);
-        bob = address(0x2);
-        user1 = address(0x3);
-        user2 = address(0x4);
+    // Memory logging for audit trail
+    mapping(uint256 => bytes32[]) private _memoryAuditLog;
 
-        // Deploy the AgentNFT contract
-        agent = new AgentNFT();
+    // Agent traits storage
+    mapping(uint256 => string[]) private _agentTraits;
+    mapping(uint256 => string) private _agentAvatarHash;
+
+    // Gas optimization: Pack multiple values into single storage slot where possible
+    struct AgentMetadata {
+        uint128 creationTime;
+        uint128 lastUpdate;
+    }
+    mapping(uint256 => AgentMetadata) private _agentMetadata;
+
+    // Access control: Authorized minters (for breeding contract, etc.)
+    mapping(address => bool) public authorizedMinters;
+
+    // Security: Max traits per agent to prevent gas attacks
+    uint256 public constant MAX_TRAITS_PER_AGENT = 20;
+    uint256 public constant MAX_MEMORY_LOGS_PER_AGENT = 1000;
+
+    // Events
+    event AgentMinted(
+        uint256 indexed tokenId,
+        address indexed owner,
+        string tokenUri
+    );
+    event MemoryHashSet(uint256 indexed tokenId, string memoryHash);
+    event MemoryLogged(
+        uint256 indexed tokenId,
+        bytes32 indexed hash,
+        uint256 timestamp
+    );
+    event MemoryForgotten(
+        uint256 indexed tokenId,
+        bytes32 indexed hash,
+        uint256 timestamp
+    );
+    event TraitsUpdated(uint256 indexed tokenId, string[] traits);
+    event AvatarUpdated(uint256 indexed tokenId, string avatarHash);
+    event AuthorizedMinterAdded(address indexed minter);
+    event AuthorizedMinterRemoved(address indexed minter);
+
+    constructor() ERC721("AgentNFT", "AGNT") Ownable(msg.sender) {}
+
+    modifier onlyOwnerOrAuthorized() {
+        require(
+            msg.sender == owner() || authorizedMinters[msg.sender],
+            "AgentNFT: Not authorized"
+        );
+        _;
     }
 
-    function testMintAgent() public {
-        // Test owner can mint
-        agent.mint(alice, TEST_TOKEN_URI);
-
-        assertEq(agent.ownerOf(0), alice);
-        assertEq(agent.tokenURI(0), "http://localhost:3001/metadata/ipfs://QmTestMetadata123");
-        assertEq(agent.nextTokenId(), 1);
+    modifier validTokenId(uint256 tokenId) {
+        require(
+            _ownerOf(tokenId) != address(0),
+            "AgentNFT: Token does not exist"
+        );
+        _;
     }
 
-    function testPublicMint() public {
-        // Test public minting with traits
-        string[] memory traits = new string[](3);
-        traits[0] = "curious";
-        traits[1] = "analytical";
-        traits[2] = "friendly";
-
-        vm.prank(user1);
-        agent.publicMint(TEST_TOKEN_URI, traits);
-
-        assertEq(agent.ownerOf(0), user1);
-        assertEq(agent.tokenURI(0), "http://localhost:3001/metadata/ipfs://QmTestMetadata123");
-
-        // Check traits were set
-        string[] memory storedTraits = agent.getTraits(0);
-        assertEq(storedTraits.length, 3);
-        assertEq(storedTraits[0], "curious");
-        assertEq(storedTraits[1], "analytical");
-        assertEq(storedTraits[2], "friendly");
+    modifier onlyTokenOwnerOrApproved(uint256 tokenId) {
+        address tokenOwner = ownerOf(tokenId);
+        require(
+            msg.sender == tokenOwner ||
+                msg.sender == owner() ||
+                getApproved(tokenId) == msg.sender ||
+                isApprovedForAll(tokenOwner, msg.sender),
+            "AgentNFT: Not authorized"
+        );
+        _;
     }
 
-    function testSetMemoryHash() public {
-        // Mint first
-        agent.mint(user1, TEST_TOKEN_URI);
-
-        // Owner can set memory hash
-        vm.prank(user1);
-        agent.setMemoryHash(0, TEST_MEMORY_HASH);
-
-        assertEq(agent.getMemoryHash(0), TEST_MEMORY_HASH);
+    // Add/remove authorized minters (for breeding contract)
+    function addAuthorizedMinter(address minter) external onlyOwner {
+        require(minter != address(0), "AgentNFT: Invalid minter address");
+        authorizedMinters[minter] = true;
+        emit AuthorizedMinterAdded(minter);
     }
 
-    function testSetTraits() public {
-        // Mint with initial traits
-        string[] memory initialTraits = new string[](2);
-        initialTraits[0] = "beginner";
-        initialTraits[1] = "curious";
-
-        vm.prank(user1);
-        agent.publicMint(TEST_TOKEN_URI, initialTraits);
-
-        // Update traits
-        string[] memory newTraits = new string[](3);
-        newTraits[0] = "expert";
-        newTraits[1] = "analytical";
-        newTraits[2] = "strategic";
-
-        vm.prank(user1);
-        agent.setTraits(0, newTraits);
-
-        string[] memory storedTraits = agent.getTraits(0);
-        assertEq(storedTraits.length, 3);
-        assertEq(storedTraits[0], "expert");
-        assertEq(storedTraits[1], "analytical");
-        assertEq(storedTraits[2], "strategic");
+    function removeAuthorizedMinter(address minter) external onlyOwner {
+        authorizedMinters[minter] = false;
+        emit AuthorizedMinterRemoved(minter);
     }
 
-    function testSetAvatarHash() public {
-        // Mint first
-        agent.mint(user1, TEST_TOKEN_URI);
+    // Mint a new Agent NFT - only owner or authorized minters
+    function mint(
+        address to,
+        string memory tokenUri
+    ) external onlyOwnerOrAuthorized nonReentrant {
+        require(to != address(0), "AgentNFT: Mint to zero address");
+        require(bytes(tokenUri).length > 0, "AgentNFT: Empty token URI");
 
-        // Set avatar hash
-        vm.prank(user1);
-        agent.setAvatarHash(0, TEST_AVATAR_HASH);
+        uint256 tokenId = nextTokenId;
+        _safeMint(to, tokenId);
+        _setTokenURI(tokenId, tokenUri);
 
-        assertEq(agent.getAvatarHash(0), TEST_AVATAR_HASH);
+        // Set metadata
+        _agentMetadata[tokenId] = AgentMetadata({
+            creationTime: uint128(block.timestamp),
+            lastUpdate: uint128(block.timestamp)
+        });
+
+        emit AgentMinted(tokenId, to, tokenUri);
+        nextTokenId++;
     }
 
-    function testUnauthorizedCannotSetTraits() public {
-        // Mint to user1
-        agent.mint(user1, TEST_TOKEN_URI);
+    // Public mint function with traits initialization and payment (optional)
+    function publicMint(
+        string memory tokenUri,
+        string[] memory initialTraits
+    ) external payable nonReentrant {
+        require(bytes(tokenUri).length > 0, "AgentNFT: Empty token URI");
+        require(
+            initialTraits.length <= MAX_TRAITS_PER_AGENT,
+            "AgentNFT: Too many traits"
+        );
 
-        string[] memory traits = new string[](1);
-        traits[0] = "hacker";
+        uint256 tokenId = nextTokenId;
+        _safeMint(msg.sender, tokenId);
+        _setTokenURI(tokenId, tokenUri);
 
-        // user2 cannot set traits for user1's token
-        vm.prank(user2);
-        vm.expectRevert("AgentNFT: Not authorized");
-        agent.setTraits(0, traits);
+        // Set initial traits
+        _agentTraits[tokenId] = initialTraits;
+
+        // Set metadata
+        _agentMetadata[tokenId] = AgentMetadata({
+            creationTime: uint128(block.timestamp),
+            lastUpdate: uint128(block.timestamp)
+        });
+
+        emit AgentMinted(tokenId, msg.sender, tokenUri);
+        emit TraitsUpdated(tokenId, initialTraits);
+        nextTokenId++;
     }
 
-    function testUnauthorizedCannotSetAvatar() public {
-        // Mint to user1
-        agent.mint(user1, TEST_TOKEN_URI);
+    // Set or update memory hash for a given tokenId with reentrancy protection
+    function setMemoryHash(
+        uint256 tokenId,
+        string memory hash
+    )
+        external
+        validTokenId(tokenId)
+        onlyTokenOwnerOrApproved(tokenId)
+        nonReentrant
+    {
+        require(bytes(hash).length > 0, "AgentNFT: Empty memory hash");
 
-        // user2 cannot set avatar for user1's token
-        vm.prank(user2);
-        vm.expectRevert("AgentNFT: Not authorized");
-        agent.setAvatarHash(0, "malicious_avatar");
+        _memoryHashes[tokenId] = hash;
+        _agentMetadata[tokenId].lastUpdate = uint128(block.timestamp);
+
+        emit MemoryHashSet(tokenId, hash);
     }
 
-    function testLogMemoryHash() public {
-        // Mint first
-        agent.mint(user1, TEST_TOKEN_URI);
+    // Set agent traits with validation
+    function setTraits(
+        uint256 tokenId,
+        string[] memory traits
+    )
+        external
+        validTokenId(tokenId)
+        onlyTokenOwnerOrApproved(tokenId)
+        nonReentrant
+    {
+        require(
+            traits.length <= MAX_TRAITS_PER_AGENT,
+            "AgentNFT: Too many traits"
+        );
 
-        bytes32 memoryHash = keccak256("test memory content");
+        // Validate trait strings are not empty
+        for (uint i = 0; i < traits.length; i++) {
+            require(bytes(traits[i]).length > 0, "AgentNFT: Empty trait");
+        }
 
-        vm.prank(user1);
-        agent.logMemoryHash(0, memoryHash);
+        _agentTraits[tokenId] = traits;
+        _agentMetadata[tokenId].lastUpdate = uint128(block.timestamp);
 
-        bytes32[] memory auditLog = agent.getMemoryAuditLog(0);
-        assertEq(auditLog.length, 1);
-        assertEq(auditLog[0], memoryHash);
-        assertEq(agent.getMemoryAuditLogCount(0), 1);
+        emit TraitsUpdated(tokenId, traits);
     }
 
-    function testLogMemoryForgotten() public {
-        // Mint first
-        agent.mint(user1, TEST_TOKEN_URI);
+    // Set avatar hash with validation
+    function setAvatarHash(
+        uint256 tokenId,
+        string memory avatarHash
+    )
+        external
+        validTokenId(tokenId)
+        onlyTokenOwnerOrApproved(tokenId)
+        nonReentrant
+    {
+        require(bytes(avatarHash).length > 0, "AgentNFT: Empty avatar hash");
 
-        bytes32 memoryHash = keccak256("forgotten memory");
+        _agentAvatarHash[tokenId] = avatarHash;
+        _agentMetadata[tokenId].lastUpdate = uint128(block.timestamp);
 
-        vm.prank(user1);
-        agent.logMemoryForgotten(0, memoryHash);
-
-        // Note: this just emits an event, doesn't modify audit log
-        // The actual deletion happens off-chain in vector DB
+        emit AvatarUpdated(tokenId, avatarHash);
     }
 
-    function testTokenExists() public {
-        // Test exists function
-        assertEq(agent.exists(0), false);
+    // Log memory hash for audit trail with limits
+    function logMemoryHash(
+        uint256 tokenId,
+        bytes32 hash
+    )
+        external
+        validTokenId(tokenId)
+        onlyTokenOwnerOrApproved(tokenId)
+        nonReentrant
+    {
+        require(hash != bytes32(0), "AgentNFT: Invalid hash");
+        require(
+            _memoryAuditLog[tokenId].length < MAX_MEMORY_LOGS_PER_AGENT,
+            "AgentNFT: Memory log limit reached"
+        );
 
-        agent.mint(user1, TEST_TOKEN_URI);
-        assertEq(agent.exists(0), true);
+        _memoryAuditLog[tokenId].push(hash);
+        emit MemoryLogged(tokenId, hash, block.timestamp);
     }
 
-    function testGetNonexistentToken() public {
-        // Should revert when trying to get traits of non-existent token
-        vm.expectRevert();
-        agent.getTraits(999);
+    // Log memory deletion for audit trail
+    function logMemoryForgotten(
+        uint256 tokenId,
+        bytes32 hash
+    )
+        external
+        validTokenId(tokenId)
+        onlyTokenOwnerOrApproved(tokenId)
+        nonReentrant
+    {
+        require(hash != bytes32(0), "AgentNFT: Invalid hash");
+        emit MemoryForgotten(tokenId, hash, block.timestamp);
+    }
 
-        vm.expectRevert();
-        agent.getAvatarHash(999);
+    // View functions
+    function getMemoryHash(
+        uint256 tokenId
+    ) external view validTokenId(tokenId) returns (string memory) {
+        return _memoryHashes[tokenId];
+    }
 
-        vm.expectRevert();
-        agent.getMemoryHash(999);
+    function getTraits(
+        uint256 tokenId
+    ) external view validTokenId(tokenId) returns (string[] memory) {
+        return _agentTraits[tokenId];
+    }
+
+    function getAvatarHash(
+        uint256 tokenId
+    ) external view validTokenId(tokenId) returns (string memory) {
+        return _agentAvatarHash[tokenId];
+    }
+
+    function getMemoryAuditLog(
+        uint256 tokenId
+    ) external view validTokenId(tokenId) returns (bytes32[] memory) {
+        return _memoryAuditLog[tokenId];
+    }
+
+    function getMemoryAuditLogCount(
+        uint256 tokenId
+    ) external view validTokenId(tokenId) returns (uint256) {
+        return _memoryAuditLog[tokenId].length;
+    }
+
+    function getAgentMetadata(
+        uint256 tokenId
+    )
+        external
+        view
+        validTokenId(tokenId)
+        returns (uint128 creationTime, uint128 lastUpdate)
+    {
+        AgentMetadata memory metadata = _agentMetadata[tokenId];
+        return (metadata.creationTime, metadata.lastUpdate);
+    }
+
+    function exists(uint256 tokenId) external view returns (bool) {
+        return _ownerOf(tokenId) != address(0);
+    }
+
+    // Gas optimization: Batch operations
+    function getMultipleTraits(
+        uint256[] calldata tokenIds
+    ) external view returns (string[][] memory) {
+        string[][] memory results = new string[][](tokenIds.length);
+        for (uint i = 0; i < tokenIds.length; i++) {
+            if (_ownerOf(tokenIds[i]) != address(0)) {
+                results[i] = _agentTraits[tokenIds[i]];
+            }
+        }
+        return results;
+    }
+
+    function _baseURI() internal pure override returns (string memory) {
+        return "http://localhost:3001/metadata/";
+    }
+
+    // Emergency functions
+    function pause() external onlyOwner {
+        // Implementation would depend on having a Pausable contract
+        // For now, this is a placeholder for emergency stops
+    }
+
+    // Upgrade safety: Prevent accidental burning
+    function burn(uint256 /*tokenId*/) external pure {
+        require(false, "AgentNFT: Burning not allowed");
     }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "../contracts/Marketplace.sol";
@@ -28,7 +28,10 @@ contract DeployMarketplace is Script {
         console.log("Network:", block.chainid);
 
         // Save to file for frontend
-        string memory envLine = string.concat("NEXT_PUBLIC_MARKETPLACE_ADDRESS=", vm.toString(address(marketplace)));
+        string memory envLine = string.concat(
+            "NEXT_PUBLIC_MARKETPLACE_ADDRESS=",
+            vm.toString(address(marketplace))
+        );
         vm.writeFile("frontend/.env.marketplace", envLine);
         console.log("Saved address to frontend/.env.marketplace");
     }

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.20;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721URIStorage} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract AgentNFT is ERC721URIStorage, Ownable {
+contract AgentNFT is ERC721URIStorage, Ownable, ReentrancyGuard {
     uint256 public nextTokenId;
 
     // Mapping tokenId -> memory hash (points to off-chain memory integrity proof)
@@ -14,32 +15,116 @@ contract AgentNFT is ERC721URIStorage, Ownable {
     // Memory logging for audit trail
     mapping(uint256 => bytes32[]) private _memoryAuditLog;
 
-    // NEW FOR DAY 9: Agent traits storage
+    // Agent traits storage
     mapping(uint256 => string[]) private _agentTraits;
     mapping(uint256 => string) private _agentAvatarHash;
 
-    // Events
-    event AgentMinted(uint256 indexed tokenId, address indexed owner, string tokenUri);
-    event MemoryHashSet(uint256 indexed tokenId, string memoryHash);
-    event MemoryLogged(uint256 indexed tokenId, bytes32 indexed hash, uint256 timestamp);
-    event MemoryForgotten(uint256 indexed tokenId, bytes32 indexed hash, uint256 timestamp);
+    // Gas optimization: Pack multiple values into single storage slot where possible
+    struct AgentMetadata {
+        uint128 creationTime;
+        uint128 lastUpdate;
+    }
+    mapping(uint256 => AgentMetadata) private _agentMetadata;
 
-    // NEW FOR DAY 9: Avatar and trait events
+    // Access control: Authorized minters (for breeding contract, etc.)
+    mapping(address => bool) public authorizedMinters;
+
+    // Security: Max traits per agent to prevent gas attacks
+    uint256 public constant MAX_TRAITS_PER_AGENT = 20;
+    uint256 public constant MAX_MEMORY_LOGS_PER_AGENT = 1000;
+
+    // Events
+    event AgentMinted(
+        uint256 indexed tokenId,
+        address indexed owner,
+        string tokenUri
+    );
+    event MemoryHashSet(uint256 indexed tokenId, string memoryHash);
+    event MemoryLogged(
+        uint256 indexed tokenId,
+        bytes32 indexed hash,
+        uint256 timestamp
+    );
+    event MemoryForgotten(
+        uint256 indexed tokenId,
+        bytes32 indexed hash,
+        uint256 timestamp
+    );
     event TraitsUpdated(uint256 indexed tokenId, string[] traits);
     event AvatarUpdated(uint256 indexed tokenId, string avatarHash);
+    event AuthorizedMinterAdded(address indexed minter);
+    event AuthorizedMinterRemoved(address indexed minter);
 
     constructor() ERC721("AgentNFT", "AGNT") Ownable(msg.sender) {}
 
-    // Mint a new Agent NFT to `to` with metadata URI
-    function mint(address to, string memory tokenUri) external onlyOwner {
-        _safeMint(to, nextTokenId);
-        _setTokenURI(nextTokenId, tokenUri);
-        emit AgentMinted(nextTokenId, to, tokenUri);
+    modifier onlyOwnerOrAuthorized() {
+        require(
+            msg.sender == owner() || authorizedMinters[msg.sender],
+            "AgentNFT: Not authorized"
+        );
+        _;
+    }
+
+    // Remove the custom validTokenId modifier - let OpenZeppelin handle it
+    // The _requireOwned() function from OpenZeppelin will throw the correct error
+
+    modifier onlyTokenOwnerOrApproved(uint256 tokenId) {
+        address tokenOwner = ownerOf(tokenId); // This will revert with ERC721NonexistentToken if token doesn't exist
+        require(
+            msg.sender == tokenOwner ||
+                msg.sender == owner() ||
+                getApproved(tokenId) == msg.sender ||
+                isApprovedForAll(tokenOwner, msg.sender),
+            "AgentNFT: Not authorized"
+        );
+        _;
+    }
+
+    // Add/remove authorized minters (for breeding contract)
+    function addAuthorizedMinter(address minter) external onlyOwner {
+        require(minter != address(0), "AgentNFT: Invalid minter address");
+        authorizedMinters[minter] = true;
+        emit AuthorizedMinterAdded(minter);
+    }
+
+    function removeAuthorizedMinter(address minter) external onlyOwner {
+        authorizedMinters[minter] = false;
+        emit AuthorizedMinterRemoved(minter);
+    }
+
+    // Mint a new Agent NFT - only owner or authorized minters
+    function mint(
+        address to,
+        string memory tokenUri
+    ) external onlyOwnerOrAuthorized nonReentrant {
+        require(to != address(0), "AgentNFT: Mint to zero address");
+        require(bytes(tokenUri).length > 0, "AgentNFT: Empty token URI");
+
+        uint256 tokenId = nextTokenId;
+        _safeMint(to, tokenId);
+        _setTokenURI(tokenId, tokenUri);
+
+        // Set metadata
+        _agentMetadata[tokenId] = AgentMetadata({
+            creationTime: uint128(block.timestamp),
+            lastUpdate: uint128(block.timestamp)
+        });
+
+        emit AgentMinted(tokenId, to, tokenUri);
         nextTokenId++;
     }
 
-    // Add public mint function with traits initialization
-    function publicMint(string memory tokenUri, string[] memory initialTraits) external {
+    // Public mint function with traits initialization and payment (optional)
+    function publicMint(
+        string memory tokenUri,
+        string[] memory initialTraits
+    ) external payable nonReentrant {
+        require(bytes(tokenUri).length > 0, "AgentNFT: Empty token URI");
+        require(
+            initialTraits.length <= MAX_TRAITS_PER_AGENT,
+            "AgentNFT: Too many traits"
+        );
+
         uint256 tokenId = nextTokenId;
         _safeMint(msg.sender, tokenId);
         _setTokenURI(tokenId, tokenUri);
@@ -47,61 +132,73 @@ contract AgentNFT is ERC721URIStorage, Ownable {
         // Set initial traits
         _agentTraits[tokenId] = initialTraits;
 
+        // Set metadata
+        _agentMetadata[tokenId] = AgentMetadata({
+            creationTime: uint128(block.timestamp),
+            lastUpdate: uint128(block.timestamp)
+        });
+
         emit AgentMinted(tokenId, msg.sender, tokenUri);
         emit TraitsUpdated(tokenId, initialTraits);
         nextTokenId++;
     }
 
-    // Set or update memory hash for a given tokenId
-    function setMemoryHash(uint256 tokenId, string memory hash) external {
-        address tokenOwner = ownerOf(tokenId); // will revert if token does not exist
-
-        require(
-            msg.sender == tokenOwner || msg.sender == owner() || getApproved(tokenId) == msg.sender
-                || isApprovedForAll(tokenOwner, msg.sender),
-            "AgentNFT: Not authorized"
-        );
+    // Set or update memory hash for a given tokenId with reentrancy protection
+    function setMemoryHash(
+        uint256 tokenId,
+        string memory hash
+    ) external onlyTokenOwnerOrApproved(tokenId) nonReentrant {
+        require(bytes(hash).length > 0, "AgentNFT: Empty memory hash");
 
         _memoryHashes[tokenId] = hash;
+        _agentMetadata[tokenId].lastUpdate = uint128(block.timestamp);
+
         emit MemoryHashSet(tokenId, hash);
     }
 
-    // NEW FOR DAY 9: Set agent traits (for trait evolution/updates)
-    function setTraits(uint256 tokenId, string[] memory traits) external {
-        address tokenOwner = ownerOf(tokenId);
-
+    // Set agent traits with validation
+    function setTraits(
+        uint256 tokenId,
+        string[] memory traits
+    ) external onlyTokenOwnerOrApproved(tokenId) nonReentrant {
         require(
-            msg.sender == tokenOwner || msg.sender == owner() || getApproved(tokenId) == msg.sender
-                || isApprovedForAll(tokenOwner, msg.sender),
-            "AgentNFT: Not authorized"
+            traits.length <= MAX_TRAITS_PER_AGENT,
+            "AgentNFT: Too many traits"
         );
 
+        // Validate trait strings are not empty
+        for (uint i = 0; i < traits.length; i++) {
+            require(bytes(traits[i]).length > 0, "AgentNFT: Empty trait");
+        }
+
         _agentTraits[tokenId] = traits;
+        _agentMetadata[tokenId].lastUpdate = uint128(block.timestamp);
+
         emit TraitsUpdated(tokenId, traits);
     }
 
-    // NEW FOR DAY 9: Set avatar hash (IPFS hash or data URI)
-    function setAvatarHash(uint256 tokenId, string memory avatarHash) external {
-        address tokenOwner = ownerOf(tokenId);
-
-        require(
-            msg.sender == tokenOwner || msg.sender == owner() || getApproved(tokenId) == msg.sender
-                || isApprovedForAll(tokenOwner, msg.sender),
-            "AgentNFT: Not authorized"
-        );
+    // Set avatar hash with validation
+    function setAvatarHash(
+        uint256 tokenId,
+        string memory avatarHash
+    ) external onlyTokenOwnerOrApproved(tokenId) nonReentrant {
+        require(bytes(avatarHash).length > 0, "AgentNFT: Empty avatar hash");
 
         _agentAvatarHash[tokenId] = avatarHash;
+        _agentMetadata[tokenId].lastUpdate = uint128(block.timestamp);
+
         emit AvatarUpdated(tokenId, avatarHash);
     }
 
-    // Log memory hash for audit trail
-    function logMemoryHash(uint256 tokenId, bytes32 hash) external {
-        address tokenOwner = ownerOf(tokenId); // will revert if token does not exist
-
+    // Log memory hash for audit trail with limits
+    function logMemoryHash(
+        uint256 tokenId,
+        bytes32 hash
+    ) external onlyTokenOwnerOrApproved(tokenId) nonReentrant {
+        require(hash != bytes32(0), "AgentNFT: Invalid hash");
         require(
-            msg.sender == tokenOwner || msg.sender == owner() || getApproved(tokenId) == msg.sender
-                || isApprovedForAll(tokenOwner, msg.sender),
-            "AgentNFT: Not authorized"
+            _memoryAuditLog[tokenId].length < MAX_MEMORY_LOGS_PER_AGENT,
+            "AgentNFT: Memory log limit reached"
         );
 
         _memoryAuditLog[tokenId].push(hash);
@@ -109,55 +206,88 @@ contract AgentNFT is ERC721URIStorage, Ownable {
     }
 
     // Log memory deletion for audit trail
-    function logMemoryForgotten(uint256 tokenId, bytes32 hash) external {
-        address tokenOwner = ownerOf(tokenId); // will revert if token does not exist
-
-        require(
-            msg.sender == tokenOwner || msg.sender == owner() || getApproved(tokenId) == msg.sender
-                || isApprovedForAll(tokenOwner, msg.sender),
-            "AgentNFT: Not authorized"
-        );
-
+    function logMemoryForgotten(
+        uint256 tokenId,
+        bytes32 hash
+    ) external onlyTokenOwnerOrApproved(tokenId) nonReentrant {
+        require(hash != bytes32(0), "AgentNFT: Invalid hash");
         emit MemoryForgotten(tokenId, hash, block.timestamp);
     }
 
-    // View memory hash for a tokenId
-    function getMemoryHash(uint256 tokenId) external view returns (string memory) {
-        // If token doesn't exist, ownerOf will revert
-        ownerOf(tokenId);
+    // View functions
+    function getMemoryHash(
+        uint256 tokenId
+    ) external view returns (string memory) {
+        // Use _requireOwned to throw the proper OpenZeppelin error
+        _requireOwned(tokenId);
         return _memoryHashes[tokenId];
     }
 
-    // NEW FOR DAY 9: Get agent traits
-    function getTraits(uint256 tokenId) external view returns (string[] memory) {
-        ownerOf(tokenId); // will revert if token does not exist
+    function getTraits(
+        uint256 tokenId
+    ) external view returns (string[] memory) {
+        _requireOwned(tokenId);
         return _agentTraits[tokenId];
     }
 
-    // NEW FOR DAY 9: Get avatar hash
-    function getAvatarHash(uint256 tokenId) external view returns (string memory) {
-        ownerOf(tokenId); // will revert if token does not exist
+    function getAvatarHash(
+        uint256 tokenId
+    ) external view returns (string memory) {
+        _requireOwned(tokenId);
         return _agentAvatarHash[tokenId];
     }
 
-    // Get memory audit log for a tokenId
-    function getMemoryAuditLog(uint256 tokenId) external view returns (bytes32[] memory) {
-        ownerOf(tokenId); // will revert if token does not exist
+    function getMemoryAuditLog(
+        uint256 tokenId
+    ) external view returns (bytes32[] memory) {
+        _requireOwned(tokenId);
         return _memoryAuditLog[tokenId];
     }
 
-    // Get memory audit log count
-    function getMemoryAuditLogCount(uint256 tokenId) external view returns (uint256) {
-        ownerOf(tokenId); // will revert if token does not exist
+    function getMemoryAuditLogCount(
+        uint256 tokenId
+    ) external view returns (uint256) {
+        _requireOwned(tokenId);
         return _memoryAuditLog[tokenId].length;
     }
 
-    // NEW FOR DAY 9: Helper function to check if token exists
+    function getAgentMetadata(
+        uint256 tokenId
+    ) external view returns (uint128 creationTime, uint128 lastUpdate) {
+        _requireOwned(tokenId);
+        AgentMetadata memory metadata = _agentMetadata[tokenId];
+        return (metadata.creationTime, metadata.lastUpdate);
+    }
+
     function exists(uint256 tokenId) external view returns (bool) {
         return _ownerOf(tokenId) != address(0);
     }
 
+    // Gas optimization: Batch operations
+    function getMultipleTraits(
+        uint256[] calldata tokenIds
+    ) external view returns (string[][] memory) {
+        string[][] memory results = new string[][](tokenIds.length);
+        for (uint i = 0; i < tokenIds.length; i++) {
+            if (_ownerOf(tokenIds[i]) != address(0)) {
+                results[i] = _agentTraits[tokenIds[i]];
+            }
+        }
+        return results;
+    }
+
     function _baseURI() internal pure override returns (string memory) {
         return "http://localhost:3001/metadata/";
+    }
+
+    // Emergency functions
+    function pause() external onlyOwner {
+        // Implementation would depend on having a Pausable contract
+        // For now, this is a placeholder for emergency stops
+    }
+
+    // Upgrade safety: Prevent accidental burning
+    function burn(uint256 /*tokenId*/) external pure {
+        require(false, "AgentNFT: Burning not allowed");
     }
 }

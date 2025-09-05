@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "../contracts/AgentNFT.sol";
@@ -24,7 +24,11 @@ contract DeployFujiScript is Script {
 
         // Write to fuji deployment file
         string memory timestamp = vm.toString(block.timestamp);
-        string memory filename = string.concat("deployments/fuji-", timestamp, ".json");
+        string memory filename = string.concat(
+            "deployments/fuji-",
+            timestamp,
+            ".json"
+        );
 
         string memory json = string.concat(
             "{\n",

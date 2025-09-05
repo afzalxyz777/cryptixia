@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "../contracts/AgentNFT.sol";
@@ -20,8 +20,13 @@ contract DeployScript is Script {
         vm.stopBroadcast();
 
         // Write deployment addresses to file
-        string memory deploymentFile =
-            string.concat("deployments/", vm.toString(block.chainid), "-", vm.toString(block.timestamp), ".json");
+        string memory deploymentFile = string.concat(
+            "deployments/",
+            vm.toString(block.chainid),
+            "-",
+            vm.toString(block.timestamp),
+            ".json"
+        );
 
         string memory json = string.concat(
             "{\n",

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
@@ -77,7 +77,12 @@ contract MemoryLoggingTest is Test {
         bytes32 testHash = keccak256("test memory");
 
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, nonexistentTokenId));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC721Errors.ERC721NonexistentToken.selector,
+                nonexistentTokenId
+            )
+        );
         agentNFT.logMemoryHash(nonexistentTokenId, testHash);
     }
 }
