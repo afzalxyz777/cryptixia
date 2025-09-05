@@ -20,13 +20,8 @@ contract DeployScript is Script {
         vm.stopBroadcast();
 
         // Write deployment addresses to file
-        string memory deploymentFile = string.concat(
-            "deployments/",
-            vm.toString(block.chainid),
-            "-",
-            vm.toString(block.timestamp),
-            ".json"
-        );
+        string memory deploymentFile =
+            string.concat("deployments/", vm.toString(block.chainid), "-", vm.toString(block.timestamp), ".json");
 
         string memory json = string.concat(
             "{\n",

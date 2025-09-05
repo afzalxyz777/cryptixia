@@ -34,11 +34,7 @@ contract Marketplace is ReentrancyGuard, Ownable {
     bool public paused = false;
 
     event AgentListed(
-        uint256 indexed listingId,
-        uint256 indexed tokenId,
-        address indexed seller,
-        uint256 price,
-        uint256 expiresAt
+        uint256 indexed listingId, uint256 indexed tokenId, address indexed seller, uint256 price, uint256 expiresAt
     );
     event AgentSold(
         uint256 indexed listingId,
@@ -63,8 +59,7 @@ contract Marketplace is ReentrancyGuard, Ownable {
         require(listingId < nextListingId, "Marketplace: Invalid listing ID");
         require(listings[listingId].active, "Marketplace: Listing not active");
         require(
-            listings[listingId].expiresAt == 0 ||
-                block.timestamp <= listings[listingId].expiresAt,
+            listings[listingId].expiresAt == 0 || block.timestamp <= listings[listingId].expiresAt,
             "Marketplace: Listing expired"
         );
         _;
@@ -75,26 +70,20 @@ contract Marketplace is ReentrancyGuard, Ownable {
         agentNFT = IERC721(_agentNFT);
     }
 
-    function list(
-        uint256 tokenId,
-        uint256 price,
-        uint256 duration
-    ) external notPaused nonReentrant returns (uint256 listingId) {
+    function list(uint256 tokenId, uint256 price, uint256 duration)
+        external
+        notPaused
+        nonReentrant
+        returns (uint256 listingId)
+    {
         // Input validation
         require(price >= MIN_LISTING_PRICE, "Marketplace: Price too low");
-        require(
-            duration == 0 || duration <= MAX_LISTING_DURATION,
-            "Marketplace: Duration too long"
-        );
-        require(
-            agentNFT.ownerOf(tokenId) == msg.sender,
-            "Marketplace: Not token owner"
-        );
+        require(duration == 0 || duration <= MAX_LISTING_DURATION, "Marketplace: Duration too long");
+        require(agentNFT.ownerOf(tokenId) == msg.sender, "Marketplace: Not token owner");
 
         // Check approval
         require(
-            agentNFT.isApprovedForAll(msg.sender, address(this)) ||
-                agentNFT.getApproved(tokenId) == address(this),
+            agentNFT.isApprovedForAll(msg.sender, address(this)) || agentNFT.getApproved(tokenId) == address(this),
             "Marketplace: Contract not approved"
         );
 
@@ -119,24 +108,13 @@ contract Marketplace is ReentrancyGuard, Ownable {
         emit AgentListed(listingId, tokenId, msg.sender, price, expiresAt);
     }
 
-    function buy(
-        uint256 listingId
-    ) external payable notPaused nonReentrant validListing(listingId) {
+    function buy(uint256 listingId) external payable notPaused nonReentrant validListing(listingId) {
         Listing storage listing = listings[listingId];
 
         // Additional safety checks
-        require(
-            msg.sender != listing.seller,
-            "Marketplace: Cannot buy own listing"
-        );
-        require(
-            msg.value >= listing.price,
-            "Marketplace: Insufficient payment"
-        );
-        require(
-            agentNFT.ownerOf(listing.tokenId) == listing.seller,
-            "Marketplace: Seller no longer owns token"
-        );
+        require(msg.sender != listing.seller, "Marketplace: Cannot buy own listing");
+        require(msg.value >= listing.price, "Marketplace: Insufficient payment");
+        require(agentNFT.ownerOf(listing.tokenId) == listing.seller, "Marketplace: Seller no longer owns token");
 
         // Mark as inactive first (reentrancy protection)
         listing.active = false;
@@ -150,33 +128,20 @@ contract Marketplace is ReentrancyGuard, Ownable {
         agentNFT.safeTransferFrom(listing.seller, msg.sender, listing.tokenId);
 
         // Transfer payment to seller
-        (bool sellerSuccess, ) = payable(listing.seller).call{
-            value: sellerAmount
-        }("");
+        (bool sellerSuccess,) = payable(listing.seller).call{value: sellerAmount}("");
         require(sellerSuccess, "Marketplace: Transfer to seller failed");
 
         // Refund excess payment if any
         uint256 excess = msg.value - listing.price;
         if (excess > 0) {
-            (bool refundSuccess, ) = payable(msg.sender).call{value: excess}(
-                ""
-            );
+            (bool refundSuccess,) = payable(msg.sender).call{value: excess}("");
             require(refundSuccess, "Marketplace: Refund failed");
         }
 
-        emit AgentSold(
-            listingId,
-            listing.tokenId,
-            msg.sender,
-            listing.seller,
-            listing.price,
-            fee
-        );
+        emit AgentSold(listingId, listing.tokenId, msg.sender, listing.seller, listing.price, fee);
     }
 
-    function cancelListing(
-        uint256 listingId
-    ) external nonReentrant validListing(listingId) {
+    function cancelListing(uint256 listingId) external nonReentrant validListing(listingId) {
         Listing storage listing = listings[listingId];
         require(listing.seller == msg.sender, "Marketplace: Not listing owner");
 
@@ -192,10 +157,7 @@ contract Marketplace is ReentrancyGuard, Ownable {
         Listing storage listing = listings[listingId];
 
         require(listing.active, "Marketplace: Listing already inactive");
-        require(
-            listing.expiresAt > 0 && block.timestamp > listing.expiresAt,
-            "Marketplace: Not expired"
-        );
+        require(listing.expiresAt > 0 && block.timestamp > listing.expiresAt, "Marketplace: Not expired");
 
         listing.active = false;
         activeListingsCount--;
@@ -204,18 +166,12 @@ contract Marketplace is ReentrancyGuard, Ownable {
     }
 
     // Batch cleanup function for gas efficiency
-    function batchCleanupExpiredListings(
-        uint256[] calldata listingIds
-    ) external {
-        for (uint i = 0; i < listingIds.length; i++) {
+    function batchCleanupExpiredListings(uint256[] calldata listingIds) external {
+        for (uint256 i = 0; i < listingIds.length; i++) {
             uint256 listingId = listingIds[i];
             if (listingId < nextListingId) {
                 Listing storage listing = listings[listingId];
-                if (
-                    listing.active &&
-                    listing.expiresAt > 0 &&
-                    block.timestamp > listing.expiresAt
-                ) {
+                if (listing.active && listing.expiresAt > 0 && block.timestamp > listing.expiresAt) {
                     listing.active = false;
                     activeListingsCount--;
                     emit ListingExpired(listingId, listing.tokenId);
@@ -225,24 +181,15 @@ contract Marketplace is ReentrancyGuard, Ownable {
     }
 
     // View functions
-    function getActiveListing(
-        uint256 listingId
-    ) external view returns (Listing memory) {
+    function getActiveListing(uint256 listingId) external view returns (Listing memory) {
         require(listingId < nextListingId, "Marketplace: Invalid listing ID");
         Listing memory listing = listings[listingId];
         require(listing.active, "Marketplace: Listing not active");
-        require(
-            listing.expiresAt == 0 || block.timestamp <= listing.expiresAt,
-            "Marketplace: Listing expired"
-        );
+        require(listing.expiresAt == 0 || block.timestamp <= listing.expiresAt, "Marketplace: Listing expired");
         return listing;
     }
 
-    function getAllActiveListings()
-        external
-        view
-        returns (uint256[] memory activeListingIds)
-    {
+    function getAllActiveListings() external view returns (uint256[] memory activeListingIds) {
         // Pre-allocate array with maximum possible size
         uint256[] memory tempArray = new uint256[](nextListingId);
         uint256 activeCount = 0;
@@ -250,10 +197,7 @@ contract Marketplace is ReentrancyGuard, Ownable {
         // Collect active, non-expired listings
         for (uint256 i = 0; i < nextListingId; i++) {
             Listing memory listing = listings[i];
-            if (
-                listing.active &&
-                (listing.expiresAt == 0 || block.timestamp <= listing.expiresAt)
-            ) {
+            if (listing.active && (listing.expiresAt == 0 || block.timestamp <= listing.expiresAt)) {
                 tempArray[activeCount] = i;
                 activeCount++;
             }
@@ -270,18 +214,15 @@ contract Marketplace is ReentrancyGuard, Ownable {
         return activeListingsCount;
     }
 
-    function getListingsByUser(
-        address user
-    ) external view returns (uint256[] memory) {
+    function getListingsByUser(address user) external view returns (uint256[] memory) {
         uint256[] memory tempArray = new uint256[](nextListingId);
         uint256 userListingCount = 0;
 
         for (uint256 i = 0; i < nextListingId; i++) {
             Listing memory listing = listings[i];
             if (
-                listing.seller == user &&
-                listing.active &&
-                (listing.expiresAt == 0 || block.timestamp <= listing.expiresAt)
+                listing.seller == user && listing.active
+                    && (listing.expiresAt == 0 || block.timestamp <= listing.expiresAt)
             ) {
                 tempArray[userListingCount] = i;
                 userListingCount++;
@@ -301,15 +242,12 @@ contract Marketplace is ReentrancyGuard, Ownable {
         uint256 balance = address(this).balance;
         require(balance > 0, "Marketplace: No fees to withdraw");
 
-        (bool success, ) = payable(owner()).call{value: balance}("");
+        (bool success,) = payable(owner()).call{value: balance}("");
         require(success, "Marketplace: Withdrawal failed");
     }
 
     function setMarketplaceFee(uint256 _fee) external onlyOwner {
-        require(
-            _fee <= MAX_MARKETPLACE_FEE,
-            "Marketplace: Fee exceeds maximum"
-        );
+        require(_fee <= MAX_MARKETPLACE_FEE, "Marketplace: Fee exceeds maximum");
 
         uint256 oldFee = marketplaceFee;
         marketplaceFee = _fee;

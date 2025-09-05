@@ -43,9 +43,7 @@ contract MarketplaceTest is Test {
         uint256 listingId = marketplace.list(tokenId, price, duration);
 
         // Verify listing
-        Marketplace.Listing memory listing = marketplace.getActiveListing(
-            listingId
-        );
+        Marketplace.Listing memory listing = marketplace.getActiveListing(listingId);
         assertEq(listing.tokenId, tokenId);
         assertEq(listing.seller, seller);
         assertEq(listing.price, price);
@@ -213,9 +211,7 @@ contract MarketplaceTest is Test {
         uint256 listingId = marketplace.list(tokenId, price, duration);
 
         // Verify listing works with publicly minted NFT
-        Marketplace.Listing memory listing = marketplace.getActiveListing(
-            listingId
-        );
+        Marketplace.Listing memory listing = marketplace.getActiveListing(listingId);
         assertEq(listing.tokenId, tokenId);
         assertEq(listing.seller, seller);
         assertEq(listing.price, price);
@@ -239,9 +235,7 @@ contract MarketplaceTest is Test {
         uint256 listingId = marketplace.list(tokenId, price, duration);
 
         // Verify listing has correct expiration time
-        Marketplace.Listing memory listing = marketplace.getActiveListing(
-            listingId
-        );
+        Marketplace.Listing memory listing = marketplace.getActiveListing(listingId);
         assertEq(listing.expiresAt, block.timestamp + duration);
 
         vm.stopPrank();

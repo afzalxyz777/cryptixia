@@ -35,11 +35,7 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
 
     // Events
     event AgentBred(
-        uint256 indexed parentA,
-        uint256 indexed parentB,
-        uint256 indexed childId,
-        address breeder,
-        uint256 fee
+        uint256 indexed parentA, uint256 indexed parentB, uint256 indexed childId, address breeder, uint256 fee
     );
     event BreedingFeeUpdated(uint256 oldFee, uint256 newFee);
     event CooldownUpdated(uint256 oldCooldown, uint256 newCooldown);
@@ -59,14 +55,8 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
     }
 
     modifier canBreedToken(uint256 tokenId) {
-        require(
-            block.timestamp >= lastBreedTime[tokenId] + breedingCooldown,
-            "Breeding: Token on cooldown"
-        );
-        require(
-            breedingCount[tokenId] < MAX_BREEDS_PER_AGENT,
-            "Breeding: Max breeds reached"
-        );
+        require(block.timestamp >= lastBreedTime[tokenId] + breedingCooldown, "Breeding: Token on cooldown");
+        require(breedingCount[tokenId] < MAX_BREEDS_PER_AGENT, "Breeding: Max breeds reached");
         _;
     }
 
@@ -78,10 +68,13 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
     /**
      * @dev Breed two agents to create a new child agent with enhanced safety
      */
-    function breed(
-        uint256 parentA,
-        uint256 parentB
-    ) external payable notPaused nonReentrant returns (uint256 childId) {
+    function breed(uint256 parentA, uint256 parentB)
+        external
+        payable
+        notPaused
+        nonReentrant
+        returns (uint256 childId)
+    {
         // Enhanced validation
         require(parentA != parentB, "Breeding: Cannot breed with self");
 
@@ -90,58 +83,28 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
         require(agentNFT.exists(parentB), "Breeding: Parent B does not exist");
 
         // Check cooldowns with specific error messages
-        require(
-            block.timestamp >= lastBreedTime[parentA] + breedingCooldown,
-            "Breeding: Parent A on cooldown"
-        );
-        require(
-            block.timestamp >= lastBreedTime[parentB] + breedingCooldown,
-            "Breeding: Parent B on cooldown"
-        );
+        require(block.timestamp >= lastBreedTime[parentA] + breedingCooldown, "Breeding: Parent A on cooldown");
+        require(block.timestamp >= lastBreedTime[parentB] + breedingCooldown, "Breeding: Parent B on cooldown");
 
-        require(
-            breedingCount[parentA] < MAX_BREEDS_PER_AGENT,
-            "Breeding: Parent A max breeds reached"
-        );
-        require(
-            breedingCount[parentB] < MAX_BREEDS_PER_AGENT,
-            "Breeding: Parent B max breeds reached"
-        );
+        require(breedingCount[parentA] < MAX_BREEDS_PER_AGENT, "Breeding: Parent A max breeds reached");
+        require(breedingCount[parentB] < MAX_BREEDS_PER_AGENT, "Breeding: Parent B max breeds reached");
 
-        require(
-            !forbiddenPairs[parentA][parentB] &&
-                !forbiddenPairs[parentB][parentA],
-            "Breeding: Forbidden pair"
-        );
+        require(!forbiddenPairs[parentA][parentB] && !forbiddenPairs[parentB][parentA], "Breeding: Forbidden pair");
 
         address parentAOwner = agentNFT.ownerOf(parentA);
         address parentBOwner = agentNFT.ownerOf(parentB);
 
         // Enhanced authorization checks
-        require(
-            _isAuthorizedForToken(parentA, parentAOwner),
-            "Breeding: Not authorized for parent A"
-        );
+        require(_isAuthorizedForToken(parentA, parentAOwner), "Breeding: Not authorized for parent A");
 
-        bool callerAuthorizedForB = _isDirectlyAuthorizedForToken(
-            parentB,
-            parentBOwner
-        );
-        bool bothOwnersApprovedContract = agentNFT.isApprovedForAll(
-            parentAOwner,
-            address(this)
-        ) && agentNFT.isApprovedForAll(parentBOwner, address(this));
+        bool callerAuthorizedForB = _isDirectlyAuthorizedForToken(parentB, parentBOwner);
+        bool bothOwnersApprovedContract = agentNFT.isApprovedForAll(parentAOwner, address(this))
+            && agentNFT.isApprovedForAll(parentBOwner, address(this));
 
-        require(
-            callerAuthorizedForB || bothOwnersApprovedContract,
-            "Breeding: Not authorized for parent B"
-        );
+        require(callerAuthorizedForB || bothOwnersApprovedContract, "Breeding: Not authorized for parent B");
 
         // Payment validation
-        require(
-            msg.value >= breedingFee,
-            "Breeding: Insufficient breeding fee"
-        );
+        require(msg.value >= breedingFee, "Breeding: Insufficient breeding fee");
 
         // Get parent traits with safety checks
         string[] memory traitsA = agentNFT.getTraits(parentA);
@@ -176,9 +139,7 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
         // Return excess payment
         uint256 excess = msg.value - breedingFee;
         if (excess > 0) {
-            (bool refundSuccess, ) = payable(msg.sender).call{value: excess}(
-                ""
-            );
+            (bool refundSuccess,) = payable(msg.sender).call{value: excess}("");
             require(refundSuccess, "Breeding: Refund failed");
         }
 
@@ -188,10 +149,7 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
     /**
      * @dev Enhanced trait combination with validation
      */
-    function _combineTraits(
-        string[] memory traitsA,
-        string[] memory traitsB
-    ) internal pure returns (string[] memory) {
+    function _combineTraits(string[] memory traitsA, string[] memory traitsB) internal pure returns (string[] memory) {
         // Prevent gas attacks
         require(traitsA.length <= 20, "Breeding: Too many traits A");
         require(traitsB.length <= 20, "Breeding: Too many traits B");
@@ -234,49 +192,35 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
     /**
      * @dev Generate token URI for child with enhanced validation
      */
-    function _generateChildTokenURI(
-        uint256 parentA,
-        uint256 parentB
-    ) internal view returns (string memory) {
+    function _generateChildTokenURI(uint256 parentA, uint256 parentB) internal view returns (string memory) {
         // Enhanced implementation with validation
         require(parentA != parentB, "Breeding: Parents must be different");
-        return
-            string(
-                abi.encodePacked(
-                    "https://api.cryptixia.io/metadata/child/",
-                    _toString(parentA),
-                    "x",
-                    _toString(parentB),
-                    "/",
-                    _toString(block.timestamp)
-                )
-            );
+        return string(
+            abi.encodePacked(
+                "https://api.cryptixia.io/metadata/child/",
+                _toString(parentA),
+                "x",
+                _toString(parentB),
+                "/",
+                _toString(block.timestamp)
+            )
+        );
     }
 
     /**
      * @dev Check if caller is authorized to use a token for breeding
      */
-    function _isAuthorizedForToken(
-        uint256 tokenId,
-        address tokenOwner
-    ) internal view returns (bool) {
-        return
-            msg.sender == tokenOwner ||
-            agentNFT.getApproved(tokenId) == msg.sender ||
-            agentNFT.isApprovedForAll(tokenOwner, msg.sender);
+    function _isAuthorizedForToken(uint256 tokenId, address tokenOwner) internal view returns (bool) {
+        return msg.sender == tokenOwner || agentNFT.getApproved(tokenId) == msg.sender
+            || agentNFT.isApprovedForAll(tokenOwner, msg.sender);
     }
 
     /**
      * @dev Check direct authorization without contract approval fallback
      */
-    function _isDirectlyAuthorizedForToken(
-        uint256 tokenId,
-        address tokenOwner
-    ) internal view returns (bool) {
-        return
-            msg.sender == tokenOwner ||
-            agentNFT.getApproved(tokenId) == msg.sender ||
-            agentNFT.isApprovedForAll(tokenOwner, msg.sender);
+    function _isDirectlyAuthorizedForToken(uint256 tokenId, address tokenOwner) internal view returns (bool) {
+        return msg.sender == tokenOwner || agentNFT.getApproved(tokenId) == msg.sender
+            || agentNFT.isApprovedForAll(tokenOwner, msg.sender);
     }
 
     /**
@@ -313,14 +257,8 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
     }
 
     function setCooldown(uint256 _cooldown) external onlyOwner {
-        require(
-            _cooldown >= MIN_BREEDING_COOLDOWN,
-            "Breeding: Cooldown too short"
-        );
-        require(
-            _cooldown <= MAX_BREEDING_COOLDOWN,
-            "Breeding: Cooldown too long"
-        );
+        require(_cooldown >= MIN_BREEDING_COOLDOWN, "Breeding: Cooldown too short");
+        require(_cooldown <= MAX_BREEDING_COOLDOWN, "Breeding: Cooldown too long");
 
         uint256 oldCooldown = breedingCooldown;
         breedingCooldown = _cooldown;
@@ -346,7 +284,7 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
         uint256 balance = address(this).balance;
         require(balance > 0, "Breeding: No fees to withdraw");
 
-        (bool success, ) = payable(owner()).call{value: balance}("");
+        (bool success,) = payable(owner()).call{value: balance}("");
         require(success, "Breeding: Withdrawal failed");
     }
 
@@ -361,9 +299,7 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
         return block.timestamp >= lastBreedTime[tokenId] + breedingCooldown;
     }
 
-    function getBreedingCooldownRemaining(
-        uint256 tokenId
-    ) external view returns (uint256) {
+    function getBreedingCooldownRemaining(uint256 tokenId) external view returns (uint256) {
         if (!agentNFT.exists(tokenId)) return 0;
 
         uint256 cooldownEnd = lastBreedTime[tokenId] + breedingCooldown;
@@ -373,17 +309,10 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
         return cooldownEnd - block.timestamp;
     }
 
-    function getBreedingStats(
-        uint256 tokenId
-    )
+    function getBreedingStats(uint256 tokenId)
         external
         view
-        returns (
-            uint256 breeds,
-            uint256 lastBreed,
-            uint256 cooldownRemaining,
-            bool canBreedNow
-        )
+        returns (uint256 breeds, uint256 lastBreed, uint256 cooldownRemaining, bool canBreedNow)
     {
         breeds = breedingCount[tokenId];
         lastBreed = lastBreedTime[tokenId];
@@ -391,23 +320,19 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
         canBreedNow = this.canBreed(tokenId);
     }
 
-    function isPairForbidden(
-        uint256 tokenA,
-        uint256 tokenB
-    ) external view returns (bool) {
+    function isPairForbidden(uint256 tokenA, uint256 tokenB) external view returns (bool) {
         return forbiddenPairs[tokenA][tokenB];
     }
 
-    function canBreedPair(
-        uint256 parentA,
-        uint256 parentB
-    ) external view returns (bool, string memory reason) {
+    function canBreedPair(uint256 parentA, uint256 parentB) external view returns (bool, string memory reason) {
         if (paused) return (false, "Contract paused");
         if (parentA == parentB) return (false, "Cannot breed with self");
-        if (!agentNFT.exists(parentA))
+        if (!agentNFT.exists(parentA)) {
             return (false, "Parent A does not exist");
-        if (!agentNFT.exists(parentB))
+        }
+        if (!agentNFT.exists(parentB)) {
             return (false, "Parent B does not exist");
+        }
         if (forbiddenPairs[parentA][parentB]) return (false, "Forbidden pair");
         if (!this.canBreed(parentA)) return (false, "Parent A cannot breed");
         if (!this.canBreed(parentB)) return (false, "Parent B cannot breed");
@@ -434,11 +359,9 @@ contract Breeding is Ownable, ReentrancyGuard, IERC721Receiver {
     }
 
     // Batch operations for gas efficiency
-    function batchCheckBreeding(
-        uint256[] calldata tokenIds
-    ) external view returns (bool[] memory canBreedResults) {
+    function batchCheckBreeding(uint256[] calldata tokenIds) external view returns (bool[] memory canBreedResults) {
         canBreedResults = new bool[](tokenIds.length);
-        for (uint i = 0; i < tokenIds.length; i++) {
+        for (uint256 i = 0; i < tokenIds.length; i++) {
             canBreedResults[i] = this.canBreed(tokenIds[i]);
         }
     }
