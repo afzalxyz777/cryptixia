@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "../contracts/AgentNFT.sol";
@@ -24,7 +24,10 @@ contract DeployLocalScript is Script {
         console.log("Marketplace deployed to:", address(marketplace));
 
         // Mint a test agent for development
-        agentNFT.publicMint("ipfs://QmTestMetadata");
+        string[] memory traits = new string[](2);
+        traits[0] = "curious";
+        traits[1] = "helpful";
+        agentNFT.publicMint("ipfs://QmTestMetadata", traits);
         console.log("Test agent minted with tokenId: 0");
 
         vm.stopBroadcast();
