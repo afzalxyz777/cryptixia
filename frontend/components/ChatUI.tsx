@@ -1,4 +1,4 @@
-// frontend/components/ChatUI.tsx (Robust version with actual AI responses)
+// frontend/components/ChatUI.tsx - FIXED VERSION for Day 10 Integration
 import { useState, useEffect, useRef } from 'react';
 import VoiceButton from './VoiceButton';
 
@@ -35,31 +35,52 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
   useEffect(() => {
     const welcomeMessage: ChatMessage = {
       id: 1,
-      text: `Hi! I'm ${agentName}. I'm powered by HuggingFace AI models. You can type to me or use the microphone to speak!`,
+      text: `Hi! I'm ${agentName}. I'm powered by AI and can remember our conversations. You can type to me or use the microphone to speak!`,
       isUser: false,
       timestamp: new Date()
     };
     setMessages([welcomeMessage]);
   }, [agentName]);
 
-  // Test server connection
+  // Test server connection - FIX: Use consistent env var and multiple endpoints
   const testServerConnection = async () => {
     try {
-      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://127.0.0.1:3001';
-      const response = await fetch(`${serverUrl}/api/huggingface/test`, {
-        method: 'GET',
-        mode: 'cors',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      });
+      // FIX: Use consistent environment variable
+      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001';
+      
+      // Try multiple test endpoints based on your server structure
+      const testEndpoints = [
+        `/api/huggingface/test`,
+        `/api/openai`,
+        `/api/chat`,
+        `/health` // Generic health check
+      ];
 
-      if (response.ok) {
-        setConnectionStatus('connected');
-        console.log('✅ Server connection successful');
-      } else {
-        throw new Error(`Server responded with status: ${response.status}`);
+      let connected = false;
+      for (const endpoint of testEndpoints) {
+        try {
+          const response = await fetch(`${serverUrl}${endpoint}`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (response.ok) {
+            setConnectionStatus('connected');
+            console.log(`✅ Server connection successful via ${endpoint}`);
+            connected = true;
+            break;
+          }
+        } catch (error) {
+          console.warn(`Failed to connect via ${endpoint}:`, error);
+        }
+      }
+
+      if (!connected) {
+        throw new Error('All connection attempts failed');
       }
     } catch (error) {
       console.error('❌ Server connection failed:', error);
@@ -67,83 +88,127 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
     }
   };
 
-  // Function to make the computer talk (Text-to-Speech)
+  // Function to make the computer talk (Text-to-Speech) - FIX: Add error handling
   const speakText = (text: string) => {
-    if ('speechSynthesis' in window) {
-      // Cancel any ongoing speech
-      window.speechSynthesis.cancel();
-      
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.8;
-      utterance.pitch = 1.1;
-      utterance.volume = 0.8;
-      window.speechSynthesis.speak(utterance);
+    if ('speechSynthesis' in window && text.trim()) {
+      try {
+        // Cancel any ongoing speech
+        window.speechSynthesis.cancel();
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.8;
+        utterance.pitch = 1.1;
+        utterance.volume = 0.8;
+        
+        utterance.onerror = (event) => {
+          console.warn('Speech synthesis error:', event);
+        };
+        
+        window.speechSynthesis.speak(utterance);
+      } catch (error) {
+        console.warn('Text-to-speech failed:', error);
+      }
     }
   };
 
-  // Store message in memory (with better error handling)
+  // Store message in memory - FIX: Use consistent endpoint naming
   const storeInMemory = async (text: string, messageType: 'user_message' | 'ai_response') => {
     try {
-      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://127.0.0.1:3001';
-      const response = await fetch(`${serverUrl}/api/embeddings/upsert`, {
-        method: 'POST',
-        mode: 'cors',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: agentId,
-          text: text,
-          metadata: {
-            type: messageType,
-            timestamp: new Date().toISOString(),
-            agentId: agentId
-          }
-        })
-      });
+      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001';
+      
+      // Try multiple possible endpoint patterns
+      const memoryEndpoints = [
+        `/api/embeddings/upsert`,
+        `/api/embeddings`,
+        `/api/memories`
+      ];
 
-      if (response.ok) {
-        console.log('✅ Memory stored successfully');
-      } else {
-        console.warn('⚠️ Memory storage failed:', response.statusText);
+      for (const endpoint of memoryEndpoints) {
+        try {
+          const response = await fetch(`${serverUrl}${endpoint}`, {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId: agentId,
+              agentId: agentId,
+              tokenId: agentId,
+              text: text,
+              message: text, // Some endpoints might expect 'message'
+              metadata: {
+                type: messageType,
+                timestamp: new Date().toISOString(),
+                agentId: agentId
+              }
+            })
+          });
+
+          if (response.ok) {
+            console.log(`✅ Memory stored successfully via ${endpoint}`);
+            return;
+          }
+        } catch (error) {
+          console.warn(`Memory storage failed via ${endpoint}:`, error);
+        }
       }
+      
+      console.warn('⚠️ All memory storage attempts failed');
     } catch (error) {
       console.warn('⚠️ Memory storage error:', error);
     }
   };
 
-  // Retrieve relevant memories for context
+  // Retrieve relevant memories for context - FIX: Use consistent endpoint naming
   const getRelevantMemories = async (queryText: string) => {
     try {
-      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://127.0.0.1:3001';
-      const response = await fetch(`${serverUrl}/api/embeddings/query`, {
-        method: 'POST',
-        mode: 'cors',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: agentId,
-          queryText: queryText,
-          topK: 3
-        })
-      });
+      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001';
+      
+      // Try multiple possible endpoint patterns
+      const queryEndpoints = [
+        `/api/embeddings/query`,
+        `/api/listMemories?tokenId=${agentId}&topK=3`,
+        `/api/memories?query=${encodeURIComponent(queryText)}`
+      ];
 
-      if (response.ok) {
-        const data = await response.json();
-        console.log('📝 Retrieved memories:', data.results?.length || 0);
-        return data.results || [];
-      } else {
-        console.warn('⚠️ Memory retrieval failed:', response.statusText);
-        return [];
+      for (const endpoint of queryEndpoints) {
+        try {
+          const response = await fetch(`${serverUrl}${endpoint}`, {
+            method: endpoint.includes('?') ? 'GET' : 'POST',
+            mode: 'cors',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            ...(endpoint.includes('?') ? {} : {
+              body: JSON.stringify({
+                userId: agentId,
+                tokenId: agentId,
+                queryText: queryText,
+                topK: 3
+              })
+            })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            console.log(`📝 Retrieved memories via ${endpoint}:`, data.results?.length || data.memories?.length || 0);
+            return data.results || data.memories || [];
+          }
+        } catch (error) {
+          console.warn(`Memory retrieval failed via ${endpoint}:`, error);
+        }
       }
+      
+      console.warn('⚠️ All memory retrieval attempts failed');
+      return [];
     } catch (error) {
       console.warn('⚠️ Memory retrieval error:', error);
       return [];
     }
   };
 
-  // Send message to the AI agent - MAIN FUNCTION
+  // Send message to the AI agent - MAIN FUNCTION - FIX: Multiple endpoint support
   const sendMessage = async (messageText: string) => {
     if (!messageText.trim()) return;
 
@@ -159,53 +224,69 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
     setIsAgentTyping(true);
 
     try {
-      console.log('🚀 Sending message to HuggingFace AI:', messageText);
+      console.log('🚀 Sending message to AI:', messageText);
 
       // STEP 1: Store user message in memory (async, don't wait)
       storeInMemory(messageText, 'user_message');
 
-      // STEP 2: Get memories for context (async, don't wait)
+      // STEP 2: Get memories for context (async, but wait for it)
       const memories = await getRelevantMemories(messageText);
 
-      // STEP 3: Send to HuggingFace API
-      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://127.0.0.1:3001';
+      // STEP 3: Send to AI API - FIX: Try multiple possible endpoints
+      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001';
       
-      const requestBody = {
-        message: messageText,
-        text: messageText, // HuggingFace route expects both
-        agentId: agentId,
-        agentName: agentName,
-        context: memories.map((mem: any) => mem.text).slice(0, 2) // Use top 2 memories
-      };
+      // Try different AI endpoints in order of preference
+      const aiEndpoints = [
+        `/api/chat`,
+        `/api/openai`,
+        `/api/huggingface/chat`
+      ];
 
-      console.log('📤 Sending request:', requestBody);
+      let aiResponse = '';
+      let endpointUsed = '';
 
-      const response = await fetch(`${serverUrl}/api/huggingface/chat`, {
-        method: 'POST',
-        mode: 'cors',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
+      for (const endpoint of aiEndpoints) {
+        try {
+          const requestBody = {
+            message: messageText,
+            text: messageText,
+            agentId: agentId,
+            tokenId: agentId,
+            agentName: agentName,
+            context: memories.map((mem: any) => mem.text).slice(0, 2), // Use top 2 memories
+            memories: memories.slice(0, 2) // Alternative format
+          };
 
-      console.log('📥 Response status:', response.status, response.statusText);
+          console.log(`📤 Trying endpoint ${endpoint}:`, requestBody);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ API Error:', response.status, errorText);
-        throw new Error(`API Error: ${response.status} - ${errorText}`);
+          const response = await fetch(`${serverUrl}${endpoint}`, {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify(requestBody)
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            console.log(`✅ Received AI response from ${endpoint}:`, data);
+
+            // Extract the actual AI response - try multiple possible field names
+            aiResponse = data.reply || data.response || data.ai_response || data.answer || data.message;
+            endpointUsed = endpoint;
+            break;
+          } else {
+            console.warn(`❌ ${endpoint} failed with status:`, response.status);
+          }
+        } catch (error) {
+          console.warn(`❌ ${endpoint} error:`, error);
+        }
       }
 
-      const data = await response.json();
-      console.log('✅ Received AI response:', data);
-
-      // Extract the actual AI response
-      const aiResponse = data.reply || data.response || data.ai_response;
-      
       if (!aiResponse || aiResponse.trim().length === 0) {
-        throw new Error('Empty response from AI');
+        throw new Error('No valid AI response received from any endpoint');
       }
 
       // Add AI's response to chat
@@ -225,23 +306,26 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
 
       // Update connection status
       setConnectionStatus('connected');
+      console.log(`✅ Successfully used endpoint: ${endpointUsed}`);
 
     } catch (error) {
       console.error('💥 Chat error:', error);
       setConnectionStatus('error');
 
-      // Provide specific error messages based on the error type
-      let errorResponse = "I'm having trouble connecting to my AI brain.";
+      // Provide specific error messages with troubleshooting tips
+      let errorResponse = "I'm having trouble connecting to my AI brain. ";
       
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        errorResponse = "I can't reach my AI server right now. Is the server running on port 3001?";
+        errorResponse += "The server might be down. Check if your server is running on port 3001.";
       } else if (error instanceof Error) {
         if (error.message.includes('CORS')) {
-          errorResponse = "There's a connection issue (CORS error). The server might need a restart.";
+          errorResponse += "There's a CORS issue. Make sure your server allows requests from this domain.";
         } else if (error.message.includes('404')) {
-          errorResponse = "The AI endpoint isn't found. Let me check if the server is properly configured.";
-        } else if (error.message.includes('Empty response')) {
-          errorResponse = "I got connected but the AI didn't have anything to say. That's unusual!";
+          errorResponse += "The AI endpoint wasn't found. Your server might be missing some API routes.";
+        } else if (error.message.includes('No valid AI response')) {
+          errorResponse += "I connected but didn't get a proper response. Check server logs for AI service issues.";
+        } else {
+          errorResponse += `Error details: ${error.message}`;
         }
       }
 
@@ -253,7 +337,6 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
       };
       setMessages(prev => [...prev, errorMessage]);
 
-      // Don't speak error messages automatically
     } finally {
       setIsAgentTyping(false);
     }
@@ -296,10 +379,20 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
       <div className="bg-gray-700 px-4 py-3 rounded-t-lg border-b border-gray-600">
         <h3 className="text-white font-medium">Chat with {agentName}</h3>
         <div className="flex items-center justify-between">
-          <p className="text-xs text-gray-400">Agent ID: {agentId} • HuggingFace AI</p>
-          <p className={`text-xs ${getStatusColor()}`}>
-            {getStatusText()}
-          </p>
+          <p className="text-xs text-gray-400">Agent ID: {agentId} • AI with Memory</p>
+          <div className="flex items-center space-x-2">
+            <p className={`text-xs ${getStatusColor()}`}>
+              {getStatusText()}
+            </p>
+            {connectionStatus === 'error' && (
+              <button
+                onClick={testServerConnection}
+                className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded"
+              >
+                Retry
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -329,7 +422,7 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
           <div className="flex justify-start">
             <div className="bg-gray-600 text-white px-4 py-2 rounded-lg text-sm">
               <div className="flex items-center space-x-1">
-                <span>{agentName} is thinking with AI...</span>
+                <span>{agentName} is thinking...</span>
                 <div className="flex space-x-1">
                   <div className="w-1 h-1 bg-white rounded-full animate-bounce"></div>
                   <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
@@ -348,7 +441,7 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
         {/* Connection warning */}
         {connectionStatus === 'error' && (
           <div className="mb-3 p-2 bg-red-900 text-red-200 rounded text-xs">
-            ⚠️ Connection issue detected. Responses may be limited. Try refreshing or check if server is running.
+            ⚠️ Connection issue detected. Check if server is running on port 3001. Try refreshing or check console for details.
           </div>
         )}
 
@@ -360,7 +453,7 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
             onChange={(e) => setTextInput(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder={connectionStatus === 'connected' ? 
-              "Ask me anything! I'm powered by real AI..." : 
+              "Ask me anything! I can remember our conversation..." : 
               "Waiting for AI connection..."
             }
             disabled={isAgentTyping}
@@ -384,6 +477,14 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
             isDisabled={isAgentTyping || connectionStatus === 'error'}
           />
         </div>
+
+        {/* Debug info for Day 10 testing */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-2 text-xs text-gray-500 text-center">
+            Server: {process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001'} | 
+            Agent: {agentId} | Status: {connectionStatus}
+          </div>
+        )}
       </div>
     </div>
   );

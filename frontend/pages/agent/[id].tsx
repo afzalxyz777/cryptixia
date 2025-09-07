@@ -23,9 +23,11 @@ interface AgentMetadata {
     friendly: boolean;
     cautious: boolean;
     pragmatic: boolean;
+    [key: string]: any; // Allow additional dynamic traits
   };
   memory_uri: string;
   created_at: string;
+  avatar_data_url?: string; // New field for avatar URL
 }
 
 interface Memory {
@@ -44,7 +46,7 @@ export default function AgentProfile() {
   const [agent, setAgent] = useState<AgentMetadata | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'chat' | 'memories'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'memories' | 'traits'>('chat');
   
   // Memories state
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -126,7 +128,10 @@ export default function AgentProfile() {
           curious: true,
           friendly: true,
           cautious: false,
-          pragmatic: true
+          pragmatic: true,
+          intelligence: 85,  // Example numeric trait
+          creativity: 92,    // Example numeric trait
+          loyalty: true      // Example boolean trait
         },
         memory_uri: `memory://agent_${tokenIdStr}_hash`,
         created_at: new Date().toISOString()
@@ -193,6 +198,29 @@ export default function AgentProfile() {
     }
   };
 
+  // Handle trait updates from AgentCard
+  const handleTraitsUpdate = async (newTraits: any) => {
+    if (!agent) return;
+
+    try {
+      // Update local state immediately for better UX
+      setAgent(prev => prev ? { ...prev, traits: { ...prev.traits, ...newTraits } } : null);
+
+      // TODO: Update metadata on IPFS and contract if needed
+      // For now, we'll just update locally
+      console.log('Traits updated:', newTraits);
+      
+      // In a full implementation, you would:
+      // 1. Upload new metadata to IPFS
+      // 2. Update tokenURI on contract
+      // 3. Handle the transaction
+    } catch (error) {
+      console.error('Error updating traits:', error);
+      // Revert local changes on error
+      fetchAgentData(id as string);
+    }
+  };
+
   const formatTimestamp = (timestamp: string) => {
     try {
       const date = new Date(parseInt(timestamp));
@@ -240,13 +268,14 @@ export default function AgentProfile() {
           <h1 className="text-3xl font-bold text-white">Agent Profile</h1>
         </div>
 
-        {/* Agent Card */}
+        {/* Enhanced Agent Card with Trait Editing */}
         {agent && (
           <div className="mb-8">
             <AgentCard
               agent={agent}
               tokenId={id as string}
               showDetails={true}
+              onTraitsUpdate={handleTraitsUpdate}
             />
           </div>
         )}
@@ -273,6 +302,16 @@ export default function AgentProfile() {
               }`}
             >
               🧠 Memories
+            </button>
+            <button
+              onClick={() => setActiveTab('traits')}
+              className={`px-6 py-3 font-medium ${
+                activeTab === 'traits'
+                  ? 'text-blue-400 border-b-2 border-blue-400'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              ⚙️ Traits & Avatar
             </button>
           </div>
 
@@ -346,6 +385,123 @@ export default function AgentProfile() {
                 )}
               </div>
             )}
+
+            {activeTab === 'traits' && agent && (
+              <div>
+                <h2 className="text-xl font-bold text-white mb-6">Agent Traits & Avatar</h2>
+                
+                {/* Avatar Section */}
+                <div className="bg-gray-700 rounded-lg p-6 mb-6">
+                  <h3 className="text-lg font-semibold text-white mb-4">Avatar</h3>
+                  <div className="flex items-center space-x-6">
+                    <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-600 flex items-center justify-center">
+                      {agent.avatar_data_url ? (
+                        <img 
+                          src={agent.avatar_data_url} 
+                          alt="Agent avatar" 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="text-3xl">
+                          {agent.personality === 'friendly' ? '😊' :
+                           agent.personality === 'pragmatic' ? '🧠' :
+                           agent.personality === 'adventurous' ? '🚀' :
+                           agent.personality === 'cautious' ? '🛡️' : '🤖'}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-gray-300 mb-2">
+                        Avatar is generated based on your agent's traits and Token ID.
+                      </p>
+                      <button
+                        onClick={() => {
+                          // Force avatar regeneration
+                          window.location.reload();
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm"
+                      >
+                        Regenerate Avatar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Traits Section */}
+                <div className="bg-gray-700 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-white mb-4">Trait Details</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(agent.traits).map(([trait, value]) => (
+                      <div key={trait} className="bg-gray-600 rounded p-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-200 font-medium capitalize">
+                            {trait.replace(/_/g, ' ')}
+                          </span>
+                          <span className={`px-2 py-1 rounded text-sm ${
+                            typeof value === 'boolean'
+                              ? value
+                                ? 'bg-green-600 text-white'
+                                : 'bg-red-600 text-white'
+                              : typeof value === 'number'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-purple-600 text-white'
+                          }`}>
+                            {typeof value === 'boolean' 
+                              ? (value ? 'Active' : 'Inactive')
+                              : typeof value === 'number'
+                              ? `${value}/100`
+                              : String(value)
+                            }
+                          </span>
+                        </div>
+                        {typeof value === 'number' && (
+                          <div className="mt-2">
+                            <div className="w-full bg-gray-800 rounded-full h-2">
+                              <div
+                                className="bg-blue-500 h-2 rounded-full"
+                                style={{ width: `${Math.min(value, 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Trait Statistics */}
+                  <div className="mt-6 pt-4 border-t border-gray-600">
+                    <h4 className="text-sm font-medium text-gray-300 mb-3">Trait Summary</h4>
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <div className="text-2xl font-bold text-green-400">
+                          {Object.values(agent.traits).filter(v => typeof v === 'boolean' && v).length}
+                        </div>
+                        <div className="text-xs text-gray-400">Active Traits</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-blue-400">
+                          {Object.values(agent.traits).filter(v => typeof v === 'number').length > 0
+                            ? Math.round(
+                                Object.values(agent.traits)
+                                  .filter(v => typeof v === 'number')
+                                  .reduce((acc, val) => acc + (val as number), 0) /
+                                Object.values(agent.traits).filter(v => typeof v === 'number').length
+                              )
+                            : 0}
+                        </div>
+                        <div className="text-xs text-gray-400">Avg Score</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-purple-400">
+                          {Object.keys(agent.traits).length}
+                        </div>
+                        <div className="text-xs text-gray-400">Total Traits</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -355,7 +511,7 @@ export default function AgentProfile() {
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium"
           >
-            ⬆️ Back to Top
+            Back to Top
           </button>
         </div>
       </div>
