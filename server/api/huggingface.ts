@@ -1,6 +1,7 @@
-// server/api/huggingface.ts - UPDATED FOR GROQ
+// server/api/huggingface.ts - FULL WORKING VERSION WITH THROTTLING
 import express, { Request, Response } from "express";
 import dotenv from "dotenv";
+import { chatRateLimit } from "../middleware/throttle";
 
 dotenv.config({ path: ".env.local" });
 
@@ -17,10 +18,10 @@ console.log("✅ Using model:", WORKING_MODEL);
 
 export async function generateChatResponse(message: string, context: string[] = []): Promise<string> {
   console.log("🎯 generateChatResponse called with:", message);
-  
+
   try {
     console.log("📤 Sending to Groq:", message);
-    
+
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -39,7 +40,7 @@ export async function generateChatResponse(message: string, context: string[] = 
             content: message
           }
         ],
-        max_tokens: 150,
+        max_tokens: 1000,
         temperature: 0.7,
         stream: false
       })
@@ -48,17 +49,24 @@ export async function generateChatResponse(message: string, context: string[] = 
     if (!response.ok) {
       const errorText = await response.text();
       console.log("❌ Groq API Error Response:", errorText);
+
+      // Handle specific Groq rate limiting
+      if (response.status === 429) {
+        console.log("[GROQ] Rate limit hit from Groq API");
+        throw new Error("Groq API rate limit exceeded");
+      }
+
       throw new Error(`Groq API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json() as any;
     console.log("📥 Raw response:", JSON.stringify(data, null, 2));
-    
+
     let result = data.choices?.[0]?.message?.content || "";
-    
+
     // Clean up the response
     result = result.trim();
-    
+
     // Fallback if empty
     if (!result || result.length < 3) {
       const responses = [
@@ -70,16 +78,16 @@ export async function generateChatResponse(message: string, context: string[] = 
       ];
       result = responses[Math.floor(Math.random() * responses.length)];
     }
-    
+
     console.log("✅ Final response:", result);
     return result;
-    
+
   } catch (error: any) {
     console.error("❌ Error details:");
     console.error("Message:", error.message);
     console.error("Name:", error.name);
     console.error("Full error:", error);
-    
+
     // Specific error handling
     const msg = (error.message || "").toLowerCase();
     if (msg.includes("rate limit") || msg.includes("429")) {
@@ -88,7 +96,7 @@ export async function generateChatResponse(message: string, context: string[] = 
     if (msg.includes("unauthorized") || msg.includes("401")) {
       return "There's an issue with my API configuration. Please check the setup.";
     }
-    
+
     // Friendly fallback
     return "I'm having a small technical hiccup. Could you try asking that again?";
   }
@@ -111,7 +119,7 @@ router.post("/embed", async (req: Request, res: Response) => {
   try {
     const { text } = req.body;
     if (!text) return res.status(400).json({ error: "Missing 'text'" });
-    
+
     const embedding = await embedText(text);
     res.json({ embedding });
   } catch (err: any) {
@@ -120,35 +128,46 @@ router.post("/embed", async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/huggingface/chat
-router.post("/chat", async (req: Request, res: Response) => {
+// POST /api/huggingface/chat - with throttling applied
+router.post("/chat", chatRateLimit, async (req: Request, res: Response) => {
   console.log("🎯 /chat endpoint hit");
   console.log("📥 Request body:", JSON.stringify(req.body, null, 2));
-  
+
   try {
     const { text, message, sessionId } = req.body;
     const inputText = text || message;
-    
+
     if (!inputText) {
       console.log("❌ No input text provided");
       return res.status(400).json({ error: "Missing 'text' or 'message'" });
     }
 
-    console.log("🚀 Calling generateChatResponse...");
+    console.log(`🚀 Calling generateChatResponse for session: ${sessionId || 'default'}...`);
     const reply = await generateChatResponse(inputText, []);
-    
+
     console.log("✅ Got reply:", reply);
-    res.json({ 
-      reply, 
+    res.json({
+      reply,
       success: true,
       model: WORKING_MODEL,
       inputReceived: inputText,
+      sessionId: sessionId || 'default',
       timestamp: new Date().toISOString()
     });
-    
+
   } catch (err: any) {
     console.error("❌ Chat endpoint error:", err);
-    res.status(500).json({ 
+
+    // Handle rate limiting errors
+    if (err.message && err.message.toLowerCase().includes("rate limit")) {
+      return res.status(429).json({
+        error: "I'm getting too many requests right now. Please try again in a moment!",
+        success: false,
+        retryAfter: 60
+      });
+    }
+
+    res.status(500).json({
       error: "Chat endpoint failed",
       details: err.message,
       success: false
