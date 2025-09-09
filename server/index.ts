@@ -1,4 +1,3 @@
-// server/index.ts
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -7,6 +6,7 @@ import huggingfaceRoutes from "./api/huggingface";
 import generateAvatarHandler from "./api/generateAvatar";
 import mixTraitsRoutes from "./api/mixTraits";
 import ttsRoutes from "./api/tts";
+import memoriesRoutes from "./api/memories"; // ADD THIS IMPORT
 
 dotenv.config({ path: ".env.local" });
 
@@ -81,7 +81,8 @@ app.get("/", (req: Request, res: Response) => {
       tts: "/api/tts",
       avatar: "/api/generateAvatar",
       mixTraits: "/api/mixTraits",
-      huggingface: "/api/huggingface"
+      huggingface: "/api/huggingface",
+      memories: "/api/memories" // ADD THIS ENDPOINT
     }
   });
 });
@@ -272,6 +273,7 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/huggingface", huggingfaceRoutes);
 app.use("/api/mixTraits", mixTraitsRoutes);
 app.use("/api", ttsRoutes); // Mount TTS routes at /api level
+app.use("/api/memories", memoriesRoutes); // ADD THIS ROUTE MOUNT
 app.get("/api/generateAvatar", generateAvatarHandler);
 
 // NFT metadata endpoint
@@ -358,8 +360,8 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   });
   
   res.status(500).json({ 
-    error: "Internal server error",
-    timestamp: new Date().toISOString()
+  error: "Internal server error",
+  timestamp: new Date().toISOString()
   });
 });
 
@@ -381,6 +383,7 @@ app.use((req: Request, res: Response) => {
       avatar: "/api/generateAvatar",
       mixTraits: "/api/mixTraits",
       huggingface: "/api/huggingface",
+      memories: "/api/memories", // ADD THIS ENDPOINT
       metadata: "/metadata/:id.json"
     }
   });
@@ -396,6 +399,7 @@ const server = app.listen(PORT, HOST, () => {
   console.log(`🎨 Avatar API available at http://${HOST}:${PORT}/api/generateAvatar`);
   console.log(`🧬 MixTraits API available at http://${HOST}:${PORT}/api/mixTraits`);
   console.log(`🤖 HuggingFace API available at http://${HOST}:${PORT}/api/huggingface`);
+  console.log(`🧠 Memories API available at http://${HOST}:${PORT}/api/memories`); // ADD THIS LOG
   console.log(`📄 Metadata API available at http://${HOST}:${PORT}/metadata/:id.json`);
   console.log(`✅ Server ready for connections`);
 });

@@ -1,10 +1,10 @@
-// frontend/pages/agent/[id].tsx
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { useAccount, useContractRead } from 'wagmi';
 import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../../lib/contract';
 import AgentCard from '../../components/AgentCard';
 import ChatUI from '../../components/ChatUI';
+import MemoriesList from '../../components/MemoriesList'; // ADD THIS IMPORT
 
 // Add BigInt serialization handler at the top
 if (typeof window !== 'undefined') {
@@ -37,6 +37,7 @@ export default function AgentProfile() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
+  const [showMemories, setShowMemories] = useState(false); // ADD THIS STATE
 
   // Convert string ID to BigInt safely, only when we have an id
   const tokenIdBigInt = id ? BigInt(id as string) : undefined;
@@ -226,13 +227,25 @@ export default function AgentProfile() {
           />
         </div>
 
-        {/* Memory Summary Section */}
+        {/* Memory Summary Section - Toggle between summary and full list */}
         <div className="bg-gray-800 rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-bold text-white mb-4">🧠 Memory Summary</h2>
-          <p className="text-gray-400">
-            This agent has no memories yet. Start chatting to build memories!
-          </p>
-          {/* TODO: Add memories list here when memory system is implemented */}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-white">🧠 Memory Summary</h2>
+            <button
+              onClick={() => setShowMemories(!showMemories)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+            >
+              {showMemories ? 'Hide Memories' : 'View Memories'}
+            </button>
+          </div>
+
+          {showMemories ? (
+            <MemoriesList agentId={id as string} />
+          ) : (
+            <p className="text-gray-400">
+              This agent has memories stored. Click "View Memories" to see them!
+            </p>
+          )}
         </div>
 
         {/* Actions */}
@@ -242,12 +255,6 @@ export default function AgentProfile() {
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium"
           >
             ⬆️ Back to Chat
-          </button>
-          <button 
-            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium"
-            onClick={() => alert('Memories feature coming soon!')}
-          >
-            🧠 View Memories (Coming Soon)
           </button>
           <button 
             className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium"

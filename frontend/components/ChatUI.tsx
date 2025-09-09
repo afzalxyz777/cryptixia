@@ -1,4 +1,3 @@
-// frontend/components/ChatUI.tsx
 import { useState, useEffect, useRef } from 'react';
 import VoiceButton from './VoiceButton';
 
@@ -35,6 +34,36 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
     };
     setMessages([welcomeMessage]);
   }, [agentName]);
+
+  // Function to store conversation as memory (non-blocking)
+  const storeMemory = async (agentId: string, text: string): Promise<boolean> => {
+    try {
+      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'http://127.0.0.1:3001';
+      const response = await fetch(`${serverUrl}/api/memories`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          agentId,
+          text
+        })
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        console.warn('Memory storage failed:', result.error);
+        return false;
+      }
+      
+      console.log('Memory stored successfully:', result);
+      return true;
+    } catch (error) {
+      console.warn('Failed to store memory:', error);
+      return false; // Don't break the chat if memory fails
+    }
+  };
 
   // Function to make the computer talk (Text-to-Speech)
   const speakText = (text: string) => {
@@ -82,7 +111,7 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
       }
 
       const data = await response.json();
-      const agentResponse = data.response || "I heard you, but I'm not sure how to respond!";
+      const agentResponse = data.response || data.reply || "I heard you, but I'm not sure how to respond!";
 
       // Add agent's response to chat
       const agentMessage: ChatMessage = {
@@ -92,6 +121,13 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
         timestamp: new Date()
       };
       setMessages(prev => [...prev, agentMessage]);
+
+      // Store the conversation as memory (non-blocking - don't await)
+      storeMemory(agentId, `User: ${messageText}\nAgent: ${agentResponse}`).then(success => {
+        if (!success) {
+          console.log('Memory storage failed, but chat completed successfully');
+        }
+      });
 
       // Make the agent speak the response!
       speakText(agentResponse);
@@ -136,12 +172,33 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
     }
   };
 
+  // Clear chat history
+  const clearChat = () => {
+    if (confirm('Are you sure you want to clear the chat history?')) {
+      setMessages([{
+        id: 1,
+        text: `Chat cleared! Hi, I'm ${agentName}. How can I help you?`,
+        isUser: false,
+        timestamp: new Date()
+      }]);
+    }
+  };
+
   return (
     <div className="flex flex-col h-96 bg-gray-800 rounded-lg border border-gray-600">
       {/* Chat Header */}
-      <div className="bg-gray-700 px-4 py-3 rounded-t-lg border-b border-gray-600">
-        <h3 className="text-white font-medium">Chat with {agentName}</h3>
-        <p className="text-xs text-gray-400">Agent ID: {agentId}</p>
+      <div className="bg-gray-700 px-4 py-3 rounded-t-lg border-b border-gray-600 flex justify-between items-center">
+        <div>
+          <h3 className="text-white font-medium">Chat with {agentName}</h3>
+          <p className="text-xs text-gray-400">Agent ID: {agentId}</p>
+        </div>
+        <button
+          onClick={clearChat}
+          className="text-xs bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded"
+          title="Clear chat history"
+        >
+          🗑️ Clear
+        </button>
       </div>
 
       {/* Messages Area */}
@@ -209,12 +266,20 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
           </button>
         </div>
 
-        {/* Voice Input */}
-        <div className="mt-3 flex justify-center">
-          <VoiceButton
-            onSpeechResult={handleVoiceInput}
-            isDisabled={isAgentTyping}
-          />
+        {/* Voice Input and Status */}
+        <div className="mt-3 flex justify-between items-center">
+          <div className="flex justify-center flex-1">
+            <VoiceButton
+              onSpeechResult={handleVoiceInput}
+              isDisabled={isAgentTyping}
+            />
+          </div>
+          
+          {/* Memory Status Indicator */}
+          <div className="text-xs text-gray-400 flex items-center">
+            <span className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1"></span>
+            Memory: Active
+          </div>
         </div>
       </div>
     </div>
