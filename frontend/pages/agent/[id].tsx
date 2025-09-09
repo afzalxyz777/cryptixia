@@ -36,6 +36,7 @@ export default function AgentProfile() {
   const [agent, setAgent] = useState<AgentMetadata | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [saveMessage, setSaveMessage] = useState('');
 
   // Convert string ID to BigInt safely, only when we have an id
   const tokenIdBigInt = id ? BigInt(id as string) : undefined;
@@ -120,6 +121,39 @@ export default function AgentProfile() {
     }
   };
 
+  // Handle trait updates
+  const handleTraitsUpdate = async (newTraits: any) => {
+    if (!agent) return;
+
+    try {
+      setSaveMessage('Saving traits...');
+      
+      // Update local state immediately
+      const updatedAgent = {
+        ...agent,
+        traits: newTraits,
+        personality: newTraits.personality
+      };
+      setAgent(updatedAgent);
+
+      // Here you would typically:
+      // 1. Call an API to update metadata on IPFS
+      // 2. Update the tokenURI on the contract (if needed)
+      // For now, we'll just simulate the save
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setSaveMessage('Traits saved successfully!');
+      setTimeout(() => setSaveMessage(''), 3000);
+      
+    } catch (error) {
+      setSaveMessage('Failed to save traits');
+      setTimeout(() => setSaveMessage(''), 3000);
+      console.error('Error updating traits:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -156,15 +190,29 @@ export default function AgentProfile() {
             ← Back
           </button>
           <h1 className="text-3xl font-bold text-white">Agent Profile</h1>
+          
+          {/* Save Message */}
+          {saveMessage && (
+            <div className={`mt-2 p-3 rounded ${
+              saveMessage.includes('successfully') 
+                ? 'bg-green-900 text-green-300' 
+                : saveMessage.includes('Failed')
+                  ? 'bg-red-900 text-red-300'
+                  : 'bg-blue-900 text-blue-300'
+            }`}>
+              {saveMessage}
+            </div>
+          )}
         </div>
 
-        {/* Agent Card */}
+        {/* Agent Card with Edit Functionality */}
         {agent && (
           <div className="mb-8">
             <AgentCard
               agent={agent}
               tokenId={id as string}
               showDetails={true}
+              onTraitsUpdate={handleTraitsUpdate}
             />
           </div>
         )}
@@ -184,18 +232,28 @@ export default function AgentProfile() {
           <p className="text-gray-400">
             This agent has no memories yet. Start chatting to build memories!
           </p>
+          {/* TODO: Add memories list here when memory system is implemented */}
         </div>
 
         {/* Actions */}
-        <div className="flex space-x-4">
+        <div className="flex space-x-4 flex-wrap">
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium"
           >
             ⬆️ Back to Chat
           </button>
-          <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium">
+          <button 
+            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium"
+            onClick={() => alert('Memories feature coming soon!')}
+          >
             🧠 View Memories (Coming Soon)
+          </button>
+          <button 
+            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium"
+            onClick={() => router.push('/breed')}
+          >
+            🧬 Breed Agent 
           </button>
         </div>
       </div>
