@@ -2,6 +2,7 @@
 import express, { Request, Response } from "express";
 import { generateChatResponse } from "./huggingface";
 import { chatRateLimit } from "../middleware/throttle";
+import { searchMemories } from "./memories"; // ADD THIS IMPORT
 
 const router = express.Router();
 
@@ -24,8 +25,29 @@ router.post("/", chatRateLimit, async (req: Request, res: Response) => {
     // Use provided sessionId or default
     const sid = sessionId || "default";
 
-    // Generate AI response using HuggingFace
-    const responseText = await generateChatResponse(message, context || []);
+    // 🔍 SEARCH FOR RELEVANT MEMORIES BEFORE GENERATING RESPONSE
+    let memoryContext: string[] = [];
+    if (tokenId) {
+      try {
+        console.log(`🧠 Searching memories for agent: ${tokenId}, query: "${message}"`);
+        const relevantMemories = await searchMemories(tokenId, message, 3); // Get top 3 relevant memories
+        
+        if (relevantMemories.length > 0) {
+          console.log(`📚 Found ${relevantMemories.length} relevant memories`);
+          memoryContext = relevantMemories.map((memory: any, index: number) => 
+            `Memory ${index + 1}: ${memory.metadata?.text} (relevance: ${(memory.score * 100).toFixed(1)}%)`
+          );
+        } else {
+          console.log("📚 No relevant memories found");
+        }
+      } catch (memoryError) {
+        console.error("❌ Memory search error:", memoryError);
+        // Don't fail the chat if memory search fails
+      }
+    }
+
+    // Generate AI response using HuggingFace WITH memory context
+    const responseText = await generateChatResponse(message, memoryContext, tokenId);
 
     console.log(`[CHAT] Generated response for session ${sid}: "${responseText}"`);
 
@@ -36,6 +58,7 @@ router.post("/", chatRateLimit, async (req: Request, res: Response) => {
       tokenId: tokenId || null,
       agentName: agentName || null,
       sessionId: sid,
+      memoriesUsed: memoryContext.length // Add info about memories used
     });
 
   } catch (error: unknown) {
@@ -62,7 +85,6 @@ router.post("/", chatRateLimit, async (req: Request, res: Response) => {
       success: false 
     });
   }
-
 });
 
 export default router;

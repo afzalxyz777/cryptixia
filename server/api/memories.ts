@@ -196,8 +196,17 @@ router.get("/search", async (req: Request, res: Response) => {
     console.log("🔍 Searching memories for agent:", agentId, "Query:", query);
     const results = await searchMemories(agentId as string, query as string, Number(topK));
     
+    // Format results for better readability
+    const formattedResults = results.map((match: any, index: number) => ({
+      id: match.id,
+      text: match.metadata?.text,
+      score: match.score,
+      relevance: `${(match.score * 100).toFixed(1)}%`,
+      timestamp: match.metadata?.timestamp
+    }));
+    
     return res.status(200).json({
-      results,
+      results: formattedResults,
       success: true,
       query: query,
       agentId: agentId,
@@ -239,5 +248,8 @@ router.delete("/", async (req: Request, res: Response) => {
     });
   }
 });
+
+// Export functions for use in other files
+export { storeMemory, listMemories, searchMemories, deleteMemory };
 
 export default router;

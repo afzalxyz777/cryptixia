@@ -16,11 +16,25 @@ const router = express.Router();
 const WORKING_MODEL = "llama-3.1-8b-instant";
 console.log("✅ Using model:", WORKING_MODEL);
 
-export async function generateChatResponse(message: string, context: string[] = []): Promise<string> {
+export async function generateChatResponse(message: string, memoryContext: string[] = [], agentId?: string): Promise<string> {
   console.log("🎯 generateChatResponse called with:", message);
+  console.log("🧠 Memory context:", memoryContext);
 
   try {
     console.log("📤 Sending to Groq:", message);
+
+    // Create system message that includes memory context
+    let systemMessage = 'You are Cryptixia, a helpful AI assistant with memory. ';
+    systemMessage += 'Keep responses concise and friendly. ';
+    
+    if (memoryContext.length > 0) {
+      systemMessage += '\n\nHere are relevant memories from previous conversations:\n';
+      systemMessage += memoryContext.join('\n');
+      systemMessage += '\n\nUse these memories to provide personalized and context-aware responses. ';
+      systemMessage += 'If the user asks about something mentioned before, refer to these memories.';
+    } else if (agentId) {
+      systemMessage += '\n\nYou have the ability to remember past conversations, but no specific memories are relevant to this query yet.';
+    }
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -33,7 +47,7 @@ export async function generateChatResponse(message: string, context: string[] = 
         messages: [
           {
             role: 'system',
-            content: 'You are Cryptixia, a helpful AI assistant. Keep responses concise and friendly.'
+            content: systemMessage
           },
           {
             role: 'user',
@@ -134,7 +148,7 @@ router.post("/chat", chatRateLimit, async (req: Request, res: Response) => {
   console.log("📥 Request body:", JSON.stringify(req.body, null, 2));
 
   try {
-    const { text, message, sessionId } = req.body;
+    const { text, message, sessionId, tokenId } = req.body;
     const inputText = text || message;
 
     if (!inputText) {
@@ -142,8 +156,27 @@ router.post("/chat", chatRateLimit, async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Missing 'text' or 'message'" });
     }
 
+    // 🔍 SEARCH FOR RELEVANT MEMORIES (for direct API calls)
+    let memoryContext: string[] = [];
+    if (tokenId) {
+      try {
+        const { searchMemories } = await import("./memories");
+        console.log(`🧠 Searching memories for agent: ${tokenId}, query: "${inputText}"`);
+        const relevantMemories = await searchMemories(tokenId, inputText, 3);
+        
+        if (relevantMemories.length > 0) {
+          console.log(`📚 Found ${relevantMemories.length} relevant memories`);
+          memoryContext = relevantMemories.map((memory: any, index: number) => 
+            `Memory ${index + 1}: ${memory.metadata?.text} (relevance: ${(memory.score * 100).toFixed(1)}%)`
+          );
+        }
+      } catch (memoryError) {
+        console.error("❌ Memory search error:", memoryError);
+      }
+    }
+
     console.log(`🚀 Calling generateChatResponse for session: ${sessionId || 'default'}...`);
-    const reply = await generateChatResponse(inputText, []);
+    const reply = await generateChatResponse(inputText, memoryContext, tokenId);
 
     console.log("✅ Got reply:", reply);
     res.json({
@@ -152,7 +185,8 @@ router.post("/chat", chatRateLimit, async (req: Request, res: Response) => {
       model: WORKING_MODEL,
       inputReceived: inputText,
       sessionId: sessionId || 'default',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      memoriesUsed: memoryContext.length
     });
 
   } catch (err: any) {
