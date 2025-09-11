@@ -32,7 +32,7 @@ contract DeployMarketplace is Script {
             "NEXT_PUBLIC_MARKETPLACE_ADDRESS=",
             vm.toString(address(marketplace))
         );
-        vm.writeFile("frontend/.env.marketplace", envLine);
+        vm.writeFile("../frontend/.env.marketplace", envLine);
         console.log("Saved address to frontend/.env.marketplace");
     }
 }
@@ -66,7 +66,7 @@ contract DeployAll is Script {
             "\nNEXT_PUBLIC_MARKETPLACE_ADDRESS=",
             vm.toString(address(marketplace))
         );
-        vm.writeFile("frontend/.env.local", envContent);
+        vm.writeFile("../frontend/.env.local", envContent);
         console.log("Created frontend/.env.local with both addresses");
     }
 }
