@@ -28,7 +28,6 @@ export default function BreedPage() {
   const [error, setError] = useState('');
   const [txHash, setTxHash] = useState('');
 
-  // Get breeding fee from contract
   const { data: breedingFee } = useContractRead({
     address: BREEDING_CONTRACT_ADDRESS as `0x${string}`,
     abi: BREEDING_CONTRACT_ABI,
@@ -36,23 +35,21 @@ export default function BreedPage() {
     enabled: isConnected,
   });
 
-  // Check if breeding pair is valid
   const { data: canBreedPairData } = useContractRead({
     address: BREEDING_CONTRACT_ADDRESS as `0x${string}`,
     abi: BREEDING_CONTRACT_ABI,
     functionName: 'canBreedPair',
-    args: selectedParentA && selectedParentB 
+    args: selectedParentA && selectedParentB
       ? [selectedParentA.tokenId, selectedParentB.tokenId]
       : undefined,
     enabled: !!(selectedParentA && selectedParentB),
   });
 
-  // Prepare breeding transaction
   const { config: breedConfig } = usePrepareContractWrite({
     address: BREEDING_CONTRACT_ADDRESS as `0x${string}`,
     abi: BREEDING_CONTRACT_ABI,
     functionName: 'breed',
-    args: selectedParentA && selectedParentB 
+    args: selectedParentA && selectedParentB
       ? [selectedParentA.tokenId, selectedParentB.tokenId]
       : undefined,
     overrides: {
@@ -66,12 +63,11 @@ export default function BreedPage() {
     onSuccess(data) {
       setTxHash(data.hash);
       setError('');
-      // Reset selections after successful breeding
       setTimeout(() => {
         setSelectedParentA(null);
         setSelectedParentB(null);
         setPreviewTraits([]);
-        fetchOwnedAgents(); // Refresh the list
+        fetchOwnedAgents();
       }, 2000);
     },
     onError(error) {
@@ -79,56 +75,33 @@ export default function BreedPage() {
     }
   });
 
-  // Fetch user's owned agents
   useEffect(() => {
-    if (address) {
-      fetchOwnedAgents();
-    }
+    if (address) fetchOwnedAgents();
   }, [address]);
 
   const fetchOwnedAgents = async () => {
     if (!address) return;
-
     setLoading(true);
     try {
       const agents: AgentData[] = [];
-      
-      // For demo purposes, we'll check token IDs 0-10
-      // In production, you'd use event logs or a subgraph
       for (let i = 0; i < 10; i++) {
-        try {
-          // Use wagmi's contract read hooks in a different approach
-          // We'll simulate this for now since we can't use hooks in loops
-          
-          // For now, let's create some mock agents if user has any
-          // You would replace this with actual contract calls
-          const mockAgent: AgentData = {
-            tokenId: ethers.BigNumber.from(i),
-            name: `Cryptixia Agent #${i}`,
-            description: `A ${['friendly', 'pragmatic', 'adventurous', 'cautious'][i % 4]} AI agent`,
-            personality: ['friendly', 'pragmatic', 'adventurous', 'cautious'][i % 4],
-            traits: [
-              ['friendly', 'pragmatic', 'adventurous', 'cautious'][i % 4],
-              'curious',
-              i % 2 === 0 ? 'analytical' : 'creative',
-              ...(i % 3 === 0 ? ['rare_trait'] : [])
-            ],
-            canBreed: i % 4 !== 0, // Make some agents on cooldown
-            cooldownRemaining: i % 4 === 0 ? 3600 : 0,
-            breedingCount: Math.floor(Math.random() * 5)
-          };
-
-          // Only add first few agents as owned for demo
-          if (i < 4) {
-            agents.push(mockAgent);
-          }
-
-        } catch (err) {
-          // Token doesn't exist or user doesn't own it
-          continue;
-        }
+        const mockAgent: AgentData = {
+          tokenId: ethers.BigNumber.from(i),
+          name: `Cryptixia Agent #${i}`,
+          description: `A ${['friendly','pragmatic','adventurous','cautious'][i % 4]} AI agent`,
+          personality: ['friendly','pragmatic','adventurous','cautious'][i % 4],
+          traits: [
+            ['friendly','pragmatic','adventurous','cautious'][i % 4],
+            'curious',
+            i % 2 === 0 ? 'analytical' : 'creative',
+            ...(i % 3 === 0 ? ['rare_trait'] : [])
+          ],
+          canBreed: i % 4 !== 0,
+          cooldownRemaining: i % 4 === 0 ? 3600 : 0,
+          breedingCount: Math.floor(Math.random() * 5)
+        };
+        if (i < 4) agents.push(mockAgent);
       }
-      
       setOwnedAgents(agents);
     } catch (err) {
       console.error('Error fetching agents:', err);
@@ -138,18 +111,14 @@ export default function BreedPage() {
     }
   };
 
-  // Generate preview traits when parents are selected
   useEffect(() => {
     if (selectedParentA && selectedParentB) {
       const combinedTraits = [
         ...selectedParentA.traits,
         ...selectedParentB.traits,
-        'bred' // Child-specific trait
+        'bred'
       ];
-      
-      // Remove duplicates
-      const uniqueTraits = [...new Set(combinedTraits)];
-      setPreviewTraits(uniqueTraits);
+      setPreviewTraits([...new Set(combinedTraits)]);
     } else {
       setPreviewTraits([]);
     }
@@ -160,12 +129,10 @@ export default function BreedPage() {
       setError('Please select two agents to breed');
       return;
     }
-
     if (!canBreedPairData?.[0]) {
       setError((canBreedPairData?.[1] as string) || 'Cannot breed this pair');
       return;
     }
-
     setError('');
     breedWrite?.();
   };
@@ -178,7 +145,6 @@ export default function BreedPage() {
     return `${minutes}m`;
   };
 
-  // Helper function to format ether - handles BigNumber from wagmi v0.12
   const formatEther = (wei: BigNumber | string | number | undefined): string => {
     if (!wei) return '0';
     try {
@@ -190,43 +156,42 @@ export default function BreedPage() {
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: 'linear-gradient(90deg, #4b6cb7 0%, #182848 100%)' }}
+      >
         <div className="text-center">
           <h1 className="text-3xl font-bold text-white mb-4">Connect Your Wallet</h1>
-          <p className="text-gray-400 mb-6">Connect your wallet to start breeding agents</p>
+          <p className="text-gray-200 mb-6">Connect your wallet to start breeding agents</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 py-8 px-4">
+    <div
+      className="min-h-screen py-8 px-4"
+      style={{ background: 'linear-gradient(90deg, #4b6cb7 0%, #182848 100%)' }}
+    >
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
-          <Link href="/" className="text-blue-400 hover:text-blue-300 mb-4 inline-block">
+          <Link href="/" className="text-blue-300 hover:text-blue-200 mb-4 inline-block">
             ← Back to Home
           </Link>
           <h1 className="text-4xl font-bold text-white mb-4">🧬 Breed Your Agents</h1>
-          <p className="text-gray-400 mb-6">
+          <p className="text-gray-200 mb-6">
             Combine two of your agents to create a new one with mixed traits. 
             Breeding costs {formatEther(breedingFee as BigNumber)} AVAX.
           </p>
         </div>
 
-        {/* Error/Success Messages */}
-        {error && (
-          <div className="bg-red-900 text-red-300 p-4 rounded-lg mb-6">
-            {error}
-          </div>
-        )}
-
+        {error && <div className="bg-red-900 text-red-300 p-4 rounded-lg mb-6">{error}</div>}
         {txHash && (
           <div className="bg-green-900 text-green-300 p-4 rounded-lg mb-6">
             Breeding successful! Transaction: 
-            <a 
-              href={`https://testnet.snowtrace.io/tx/${txHash}`} 
-              target="_blank" 
+            <a
+              href={`https://testnet.snowtrace.io/tx/${txHash}`}
+              target="_blank"
               rel="noopener noreferrer"
               className="underline ml-1"
             >
@@ -235,20 +200,18 @@ export default function BreedPage() {
           </div>
         )}
 
-        {/* Loading State */}
         {loading && (
           <div className="bg-gray-800 rounded-lg p-8 text-center mb-6">
             <div className="text-white text-xl">Loading your agents...</div>
           </div>
         )}
 
-        {/* No Agents */}
         {!loading && ownedAgents.length === 0 && (
           <div className="bg-gray-800 rounded-lg p-8 text-center mb-6">
             <h2 className="text-2xl font-bold text-white mb-4">No Agents Found</h2>
             <p className="text-gray-400 mb-6">You need at least 2 agents to breed. Mint some agents first!</p>
-            <Link 
-              href="/mint" 
+            <Link
+              href="/mint"
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium"
             >
               Mint Your First Agent
@@ -256,15 +219,13 @@ export default function BreedPage() {
           </div>
         )}
 
-        {/* Breeding Interface */}
         {!loading && ownedAgents.length >= 1 && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            {/* Parent A Selection */}
+            {/* Parent A */}
             <div>
               <h2 className="text-2xl font-bold text-white mb-4">Parent A</h2>
               <div className="space-y-4">
-                {ownedAgents.map((agent) => (
+                {ownedAgents.map(agent => (
                   <div
                     key={agent.tokenId.toString()}
                     className={`cursor-pointer transition-all ${
@@ -282,14 +243,12 @@ export default function BreedPage() {
                         <div className="flex-1">
                           <h3 className="text-white font-medium">{agent.name}</h3>
                           <p className="text-sm text-gray-400">
-                            Breeds: {agent.breedingCount}/100 • 
+                            Breeds: {agent.breedingCount}/100 •
                             {agent.canBreed ? ' Ready' : ` Cooldown: ${formatCooldown(agent.cooldownRemaining)}`}
                           </p>
                           <div className="flex flex-wrap gap-1 mt-2">
-                            {agent.traits.slice(0, 3).map((trait, i) => (
-                              <span key={i} className="px-2 py-1 bg-gray-700 text-xs rounded">
-                                {trait}
-                              </span>
+                            {agent.traits.slice(0,3).map((trait,i) => (
+                              <span key={i} className="px-2 py-1 bg-gray-700 text-xs rounded">{trait}</span>
                             ))}
                             {agent.traits.length > 3 && (
                               <span className="px-2 py-1 bg-gray-700 text-xs rounded">
@@ -298,9 +257,7 @@ export default function BreedPage() {
                             )}
                           </div>
                         </div>
-                        {selectedParentA?.tokenId.eq(agent.tokenId) && (
-                          <div className="text-blue-400">✓</div>
-                        )}
+                        {selectedParentA?.tokenId.eq(agent.tokenId) && <div className="text-blue-400">✓</div>}
                       </div>
                     </div>
                   </div>
@@ -308,10 +265,9 @@ export default function BreedPage() {
               </div>
             </div>
 
-            {/* Preview & Breed Button */}
+            {/* Child Preview */}
             <div>
               <h2 className="text-2xl font-bold text-white mb-4">Child Preview</h2>
-              
               {selectedParentA && selectedParentB ? (
                 <div className="bg-gray-800 rounded-lg p-6">
                   <div className="text-center mb-6">
@@ -323,20 +279,16 @@ export default function BreedPage() {
                       Child of Agent #{selectedParentA.tokenId.toString()} × Agent #{selectedParentB.tokenId.toString()}
                     </p>
                   </div>
-
-                  {/* Predicted Traits */}
                   <div className="mb-6">
                     <h4 className="text-white font-medium mb-3">Predicted Traits:</h4>
                     <div className="flex flex-wrap gap-2">
-                      {previewTraits.map((trait, i) => (
+                      {previewTraits.map((trait,i) => (
                         <span key={i} className="px-3 py-1 bg-purple-600 text-white text-xs rounded-full">
                           {trait}
                         </span>
                       ))}
                     </div>
                   </div>
-
-                  {/* Breeding Cost */}
                   <div className="bg-gray-700 rounded-lg p-4 mb-6">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-300">Breeding Fee:</span>
@@ -345,8 +297,6 @@ export default function BreedPage() {
                       </span>
                     </div>
                   </div>
-
-                  {/* Breed Button */}
                   <button
                     onClick={handleBreed}
                     disabled={!canBreedPairData?.[0] || isBreeding}
@@ -358,15 +308,11 @@ export default function BreedPage() {
                   >
                     {isBreeding ? 'Breeding...' : 'Breed Agents'}
                   </button>
-
-                  {/* Breeding Requirements */}
                   <div className="mt-4 text-xs text-gray-400">
                     {!canBreedPairData?.[0] && canBreedPairData?.[1] && (
                       <p className="text-red-400">⚠️ {canBreedPairData[1]}</p>
                     )}
-                    {canBreedPairData?.[0] && (
-                      <p className="text-green-400">✅ Ready to breed!</p>
-                    )}
+                    {canBreedPairData?.[0] && <p className="text-green-400">✅ Ready to breed!</p>}
                   </div>
                 </div>
               ) : (
@@ -377,13 +323,13 @@ export default function BreedPage() {
               )}
             </div>
 
-            {/* Parent B Selection */}
+            {/* Parent B */}
             <div>
               <h2 className="text-2xl font-bold text-white mb-4">Parent B</h2>
               <div className="space-y-4">
                 {ownedAgents
                   .filter(agent => !selectedParentA?.tokenId.eq(agent.tokenId))
-                  .map((agent) => (
+                  .map(agent => (
                   <div
                     key={agent.tokenId.toString()}
                     className={`cursor-pointer transition-all ${
@@ -401,14 +347,12 @@ export default function BreedPage() {
                         <div className="flex-1">
                           <h3 className="text-white font-medium">{agent.name}</h3>
                           <p className="text-sm text-gray-400">
-                            Breeds: {agent.breedingCount}/100 • 
+                            Breeds: {agent.breedingCount}/100 •
                             {agent.canBreed ? ' Ready' : ` Cooldown: ${formatCooldown(agent.cooldownRemaining)}`}
                           </p>
                           <div className="flex flex-wrap gap-1 mt-2">
-                            {agent.traits.slice(0, 3).map((trait, i) => (
-                              <span key={i} className="px-2 py-1 bg-gray-700 text-xs rounded">
-                                {trait}
-                              </span>
+                            {agent.traits.slice(0,3).map((trait,i) => (
+                              <span key={i} className="px-2 py-1 bg-gray-700 text-xs rounded">{trait}</span>
                             ))}
                             {agent.traits.length > 3 && (
                               <span className="px-2 py-1 bg-gray-700 text-xs rounded">
@@ -417,9 +361,7 @@ export default function BreedPage() {
                             )}
                           </div>
                         </div>
-                        {selectedParentB?.tokenId.eq(agent.tokenId) && (
-                          <div className="text-green-400">✓</div>
-                        )}
+                        {selectedParentB?.tokenId.eq(agent.tokenId) && <div className="text-green-400">✓</div>}
                       </div>
                     </div>
                   </div>
@@ -429,7 +371,6 @@ export default function BreedPage() {
           </div>
         )}
 
-        {/* Instructions */}
         {ownedAgents.length >= 2 && (
           <div className="mt-12 bg-blue-900 rounded-lg p-6">
             <h3 className="text-xl font-bold text-white mb-4">How Breeding Works</h3>

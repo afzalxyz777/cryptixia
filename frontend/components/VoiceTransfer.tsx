@@ -219,7 +219,7 @@ export default function VoiceTransfer() {
     return (
         <div className="bg-gray-800 rounded-lg p-6 max-w-md mx-auto">
             <h2 className="text-xl font-bold text-white mb-6 text-center">
-                🎤 Voice Crypto Transfer
+                Voice Crypto Transfer
             </h2>
 
             {/* Balance Display */}

@@ -1,4 +1,100 @@
 @import "tailwindcss";
+/* styles/globals.css */
+@import url('https://fonts.googleapis.com/css2?family=Monoton&display=swap');
+
+.monoton-regular {
+  font-family: "Monoton", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+.glow-on-hover {
+  width: 220px;
+  height: 50px;
+  border: none;
+  outline: none;
+  color: #fff;
+  background: #1f2937; /* Changed from #111 to gray-800 (#1f2937) */
+  cursor: pointer;
+  position: relative;
+  z-index: 0;
+  border-radius: 10px;
+  padding: 0; /* Make wrapper tight around the ConnectButton */
+}
+
+.glow-on-hover:before {
+  content: '';
+  background: linear-gradient(
+    45deg,
+    #ff0000,
+    #ff7300,
+    #fffb00,
+    #48ff00,
+    #00ffd5,
+    #002bff,
+    #7a00ff,
+    #ff00c8,
+    #ff0000
+  );
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  background-size: 400%;
+  z-index: -1;
+  filter: blur(5px);
+  width: calc(100% + 4px);
+  height: calc(100% + 4px);
+  animation: glowing 20s linear infinite;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+  border-radius: 10px;
+}
+
+.glow-on-hover:hover:before {
+  opacity: 1;
+}
+
+.glow-on-hover:after {
+  z-index: -1;
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: #1f2937; /* Changed from #111 to gray-800 (#1f2937) */
+  left: 0;
+  top: 0;
+  border-radius: 10px;
+}
+
+@keyframes glowing {
+  0% {
+    background-position: 0 0;
+  }
+  50% {
+    background-position: 400% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+/* Additional styles to override RainbowKit button styling */
+.wallet-connect-override button {
+  background: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  color: white !important;
+  font-weight: 500 !important;
+  height: 100%;
+  width: 100%;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.wallet-connect-override button:hover {
+  background: transparent !important;
+  transform: none !important;
+}
 
 :root {
   --background: #ffffff;
