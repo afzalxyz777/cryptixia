@@ -1,7 +1,6 @@
 // server/api/parseIntent.ts - UPDATED VERSION
 import express, { Request, Response } from "express";
-import { generateChatResponse } from "./huggingface";
-import { chatRateLimit } from "../middleware/throttle";
+import { generateChatResponse } from "../api/huggingface";
 
 const router = express.Router();
 
@@ -16,7 +15,7 @@ interface ParsedIntent {
 }
 
 // POST /api/parseIntent - Parse voice commands for crypto actions
-router.post("/", chatRateLimit, async (req: Request, res: Response) => {
+router.post("/", async (req: Request, res: Response) => {
     try {
         const { text, message } = req.body;
         const input = text || message;
@@ -63,10 +62,12 @@ function manualParseIntent(input: string): ParsedIntent {
     const lowerInput = input.toLowerCase().trim();
 
     // Send/transfer patterns
+    // Add more patterns to manualParseIntent function
     const sendPatterns = [
-        /(?:send|transfer|pay)\s+(\d+\.?\d*)\s*(?:avax|avalanche)\s+to\s+(\w+)/i,
+        /(?:send|transfer|pay)\s+(\d+\.?\d*)\s*(?:avax|avalanche)?\s+to\s+(\w+)/i,
         /(?:send|transfer|pay)\s+(\d+\.?\d*)\s+to\s+(\w+)/i,
-        /(?:send|transfer|pay)\s+(\d+\.?\d*)\s*(?:avax|avalanche)\s+for\s+(\w+)/i,
+        /(?:send|transfer|pay)\s+(\d+\.?\d*)\s*(?:avax|avalanche)?\s+for\s+(\w+)/i,
+        /(?:send|transfer|pay)\s+(\d+\.?\d*)\s+(\w+)/i, // "send 0.01 abc"
     ];
 
     for (const pattern of sendPatterns) {
@@ -89,6 +90,7 @@ function manualParseIntent(input: string): ParsedIntent {
         /(?:check|what.*is|what's).*balance/i,
         /(?:how much).*(?:avax|avalanche)/i,
         /(?:balance|amount).*(?:avax|avalanche)/i,
+        /(?:my).*(?:balance)/i,
     ];
 
     for (const pattern of balancePatterns) {
@@ -134,9 +136,9 @@ Examples:
 
 JSON Response:`;
 
-    const aiResponse = await generateChatResponse(intentPrompt);
-
     try {
+        const aiResponse = await generateChatResponse(intentPrompt);
+
         // Extract JSON from response
         const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
         if (jsonMatch) {

@@ -38,51 +38,72 @@ export default function AgentProfile() {
   const [error, setError] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
   const [showMemories, setShowMemories] = useState(false);
+  const [tokenExists, setTokenExists] = useState(false);
 
   // Convert string ID to BigInt safely, only when we have an id
   const tokenIdBigInt = id ? BigInt(id as string) : undefined;
 
-  // Check if the NFT actually exists on-chain
-  const { data: tokenExists, isError: tokenError, error: contractError } = useContractRead({
+  // FIXED: Check if the NFT exists with proper error handling
+  const { data: ownerAddress, isError: tokenError, isLoading: tokenLoading } = useContractRead({
     address: CONTRACT_ADDRESS as `0x${string}`,
     abi: CONTRACT_ABI,
     functionName: 'ownerOf',
     args: tokenIdBigInt ? [tokenIdBigInt] : undefined,
-    enabled: !!tokenIdBigInt,
-    onError: (error) => {
-      console.error('Contract read error:', error);
-      setError('This agent NFT does not exist or could not be loaded');
+    enabled: !!tokenIdBigInt && !!CONTRACT_ABI && CONTRACT_ABI.length > 0,
+    // FIXED: Don't set error state immediately, handle it in onSuccess/onError
+    onSuccess: (data) => {
+      console.log('Token owner found:', data);
+      setTokenExists(true);
+      setError('');
+    },
+    onError: (error: any) => {
+      console.log('Token lookup error:', error.message);
+      // Check if it's specifically a "nonexistent token" error
+      if (error.message?.includes('ERC721NonexistentToken') ||
+        error.message?.includes('nonexistent token') ||
+        error.message?.includes('invalid token ID')) {
+        setError(`Agent NFT #${id} does not exist yet. It may not have been minted.`);
+        setTokenExists(false);
+      } else {
+        setError('Unable to verify agent NFT. Please check your connection.');
+        setTokenExists(false);
+      }
+      setLoading(false);
     }
   });
 
-  // Get token URI from contract
+  // Get token URI from contract - only if token exists
   const { data: tokenURI, isError: uriError } = useContractRead({
     address: CONTRACT_ADDRESS as `0x${string}`,
     abi: CONTRACT_ABI,
     functionName: 'tokenURI',
     args: tokenIdBigInt ? [tokenIdBigInt] : undefined,
-    enabled: !!tokenIdBigInt && !tokenError && !!tokenExists,
+    enabled: !!tokenIdBigInt && tokenExists && !tokenError,
     onError: (error) => {
       console.error('Token URI error:', error);
     }
   });
 
   useEffect(() => {
-    if (id && !tokenError && tokenExists) {
-      fetchAgentData(id as string);
-    } else if (tokenError || contractError) {
-      setError('This agent NFT does not exist');
-      setLoading(false);
+    // FIXED: Better loading state management
+    if (id && !tokenLoading) {
+      if (tokenExists && !tokenError) {
+        fetchAgentData(id as string);
+      } else if (tokenError) {
+        // Error is already set in onError callback
+        setLoading(false);
+      }
     }
-  }, [id, tokenError, tokenExists, tokenURI, contractError]);
+  }, [id, tokenExists, tokenError, tokenLoading, tokenURI]);
 
   const fetchAgentData = async (tokenIdStr: string) => {
     try {
       setLoading(true);
+      setError(''); // Clear any previous errors
 
       if (tokenURI) {
         // Try to fetch actual metadata from IPFS
-        const metadataUrl = (tokenURI as string).replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+        const metadataUrl = String(tokenURI).replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
 
         try {
           const response = await fetch(metadataUrl);
@@ -97,7 +118,7 @@ export default function AgentProfile() {
         }
       }
 
-      // Fallback to mock data if IPFS fails
+      // Fallback to mock data if IPFS fails or no tokenURI
       const mockAgent: AgentMetadata = {
         name: `Cryptixia Agent #${tokenIdStr}`,
         description: "A friendly AI agent created on the blockchain",
@@ -128,7 +149,7 @@ export default function AgentProfile() {
 
     try {
       setSaveMessage('Saving traits...');
-      
+
       // Update local state immediately
       const updatedAgent = {
         ...agent,
@@ -141,13 +162,13 @@ export default function AgentProfile() {
       // 1. Call an API to update metadata on IPFS
       // 2. Update the tokenURI on the contract (if needed)
       // For now, we'll just simulate the save
-      
+
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       setSaveMessage('Traits saved successfully!');
       setTimeout(() => setSaveMessage(''), 3000);
-      
+
     } catch (error) {
       setSaveMessage('Failed to save traits');
       setTimeout(() => setSaveMessage(''), 3000);
@@ -155,38 +176,55 @@ export default function AgentProfile() {
     }
   };
 
-  if (loading) {
+  // FIXED: Show loading while checking if token exists
+  if (loading || tokenLoading) {
     return (
-      <div 
+      <div
         className="min-h-screen flex items-center justify-center px-4"
         style={{ background: 'linear-gradient(90deg, #4b6cb7 0%, #182848 100%)' }}
       >
-        <div className="text-white text-xl">Loading agent...</div>
+        <div className="text-white text-xl">
+          {tokenLoading ? 'Checking if agent exists...' : 'Loading agent...'}
+        </div>
       </div>
     );
   }
 
-  if (error || tokenError) {
+  // FIXED: Better error handling with specific messages
+  if (error || (!tokenExists && !tokenLoading)) {
     return (
-      <div 
+      <div
         className="min-h-screen flex items-center justify-center px-4"
         style={{ background: 'linear-gradient(90deg, #4b6cb7 0%, #182848 100%)' }}
       >
-        <div className="text-center">
-          <div className="text-red-300 text-xl mb-4">{error || 'Agent not found'}</div>
-          <button
-            onClick={() => router.push('/mint')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg"
-          >
-            Mint Your First Agent
-          </button>
+        <div className="text-center max-w-md">
+          <div className="text-red-300 text-xl mb-4">
+            {error || `Agent #${id} not found`}
+          </div>
+          <p className="text-gray-300 mb-6 text-sm">
+            This agent NFT doesn't exist on the blockchain. You may need to mint it first.
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => router.push('/mint')}
+              className="block w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium"
+            >
+              Mint Your First Agent
+            </button>
+            <button
+              onClick={() => router.push('/')}
+              className="block w-full bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium"
+            >
+              Go Back Home
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div 
+    <div
       className="min-h-screen py-8 px-4"
       style={{ background: 'linear-gradient(90deg, #4b6cb7 0%, #182848 100%)' }}
     >
@@ -202,18 +240,24 @@ export default function AgentProfile() {
             </svg>
             Back
           </button>
-          
+
           <h1 className="text-3xl font-bold text-white text-center">Agent Profile</h1>
-          
+
+          {/* FIXED: Show owner info if available */}
+          {ownerAddress && (
+            <p className="text-center text-blue-200 text-sm mt-2">
+              Owned by: {ownerAddress.toString().slice(0, 6)}...{ownerAddress.toString().slice(-4)}
+            </p>
+          )}
+
           {/* Save Message */}
           {saveMessage && (
-            <div className={`mt-2 p-3 rounded-lg mx-auto max-w-md ${
-              saveMessage.includes('successfully') 
-                ? 'bg-green-900/80 text-green-200' 
-                : saveMessage.includes('Failed')
-                  ? 'bg-red-900/80 text-red-200'
-                  : 'bg-blue-900/80 text-blue-200'
-            }`}>
+            <div className={`mt-2 p-3 rounded-lg mx-auto max-w-md ${saveMessage.includes('successfully')
+              ? 'bg-green-900/80 text-green-200'
+              : saveMessage.includes('Failed')
+                ? 'bg-red-900/80 text-red-200'
+                : 'bg-blue-900/80 text-blue-200'
+              }`}>
               {saveMessage}
             </div>
           )}
@@ -271,11 +315,11 @@ export default function AgentProfile() {
           >
             ⬆️ Back to Chat
           </button>
-          <button 
+          <button
             className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium"
             onClick={() => router.push('/breed')}
           >
-            🧬 Breed Agent 
+            🧬 Breed Agent
           </button>
         </div>
       </div>

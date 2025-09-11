@@ -28,14 +28,24 @@ export default function BreedPage() {
   const [error, setError] = useState('');
   const [txHash, setTxHash] = useState('');
 
-  const { data: breedingFee } = useContractRead({
+  const { data: breedingFee } = useContractRead<
+    typeof BREEDING_CONTRACT_ABI,
+    'getBreedingCost',
+    BigNumber
+  >({
     address: BREEDING_CONTRACT_ADDRESS as `0x${string}`,
     abi: BREEDING_CONTRACT_ABI,
     functionName: 'getBreedingCost',
     enabled: isConnected,
   });
 
-  const { data: canBreedPairData } = useContractRead({
+
+
+  const { data: canBreedPairData } = useContractRead<
+    typeof BREEDING_CONTRACT_ABI,
+    'canBreedPair',
+    [boolean, string]
+  >({
     address: BREEDING_CONTRACT_ADDRESS as `0x${string}`,
     abi: BREEDING_CONTRACT_ABI,
     functionName: 'canBreedPair',
@@ -44,6 +54,7 @@ export default function BreedPage() {
       : undefined,
     enabled: !!(selectedParentA && selectedParentB),
   });
+
 
   const { config: breedConfig } = usePrepareContractWrite({
     address: BREEDING_CONTRACT_ADDRESS as `0x${string}`,
@@ -88,10 +99,10 @@ export default function BreedPage() {
         const mockAgent: AgentData = {
           tokenId: ethers.BigNumber.from(i),
           name: `Cryptixia Agent #${i}`,
-          description: `A ${['friendly','pragmatic','adventurous','cautious'][i % 4]} AI agent`,
-          personality: ['friendly','pragmatic','adventurous','cautious'][i % 4],
+          description: `A ${['friendly', 'pragmatic', 'adventurous', 'cautious'][i % 4]} AI agent`,
+          personality: ['friendly', 'pragmatic', 'adventurous', 'cautious'][i % 4],
           traits: [
-            ['friendly','pragmatic','adventurous','cautious'][i % 4],
+            ['friendly', 'pragmatic', 'adventurous', 'cautious'][i % 4],
             'curious',
             i % 2 === 0 ? 'analytical' : 'creative',
             ...(i % 3 === 0 ? ['rare_trait'] : [])
@@ -180,7 +191,7 @@ export default function BreedPage() {
           </Link>
           <h1 className="text-4xl font-bold text-white mb-4">🧬 Breed Your Agents</h1>
           <p className="text-gray-200 mb-6">
-            Combine two of your agents to create a new one with mixed traits. 
+            Combine two of your agents to create a new one with mixed traits.
             Breeding costs {formatEther(breedingFee as BigNumber)} AVAX.
           </p>
         </div>
@@ -188,7 +199,7 @@ export default function BreedPage() {
         {error && <div className="bg-red-900 text-red-300 p-4 rounded-lg mb-6">{error}</div>}
         {txHash && (
           <div className="bg-green-900 text-green-300 p-4 rounded-lg mb-6">
-            Breeding successful! Transaction: 
+            Breeding successful! Transaction:
             <a
               href={`https://testnet.snowtrace.io/tx/${txHash}`}
               target="_blank"
@@ -228,11 +239,10 @@ export default function BreedPage() {
                 {ownedAgents.map(agent => (
                   <div
                     key={agent.tokenId.toString()}
-                    className={`cursor-pointer transition-all ${
-                      selectedParentA?.tokenId.eq(agent.tokenId)
-                        ? 'ring-2 ring-blue-500'
-                        : 'hover:ring-1 hover:ring-gray-500'
-                    } ${!agent.canBreed ? 'opacity-50' : ''}`}
+                    className={`cursor-pointer transition-all ${selectedParentA?.tokenId.eq(agent.tokenId)
+                      ? 'ring-2 ring-blue-500'
+                      : 'hover:ring-1 hover:ring-gray-500'
+                      } ${!agent.canBreed ? 'opacity-50' : ''}`}
                     onClick={() => agent.canBreed && setSelectedParentA(agent)}
                   >
                     <div className="bg-gray-800 rounded-lg p-4">
@@ -247,7 +257,7 @@ export default function BreedPage() {
                             {agent.canBreed ? ' Ready' : ` Cooldown: ${formatCooldown(agent.cooldownRemaining)}`}
                           </p>
                           <div className="flex flex-wrap gap-1 mt-2">
-                            {agent.traits.slice(0,3).map((trait,i) => (
+                            {agent.traits.slice(0, 3).map((trait, i) => (
                               <span key={i} className="px-2 py-1 bg-gray-700 text-xs rounded">{trait}</span>
                             ))}
                             {agent.traits.length > 3 && (
@@ -282,7 +292,7 @@ export default function BreedPage() {
                   <div className="mb-6">
                     <h4 className="text-white font-medium mb-3">Predicted Traits:</h4>
                     <div className="flex flex-wrap gap-2">
-                      {previewTraits.map((trait,i) => (
+                      {previewTraits.map((trait, i) => (
                         <span key={i} className="px-3 py-1 bg-purple-600 text-white text-xs rounded-full">
                           {trait}
                         </span>
@@ -300,11 +310,10 @@ export default function BreedPage() {
                   <button
                     onClick={handleBreed}
                     disabled={!canBreedPairData?.[0] || isBreeding}
-                    className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                      canBreedPairData?.[0] && !isBreeding
-                        ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                        : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                    }`}
+                    className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${canBreedPairData?.[0] && !isBreeding
+                      ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                      : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      }`}
                   >
                     {isBreeding ? 'Breeding...' : 'Breed Agents'}
                   </button>
@@ -330,42 +339,41 @@ export default function BreedPage() {
                 {ownedAgents
                   .filter(agent => !selectedParentA?.tokenId.eq(agent.tokenId))
                   .map(agent => (
-                  <div
-                    key={agent.tokenId.toString()}
-                    className={`cursor-pointer transition-all ${
-                      selectedParentB?.tokenId.eq(agent.tokenId)
+                    <div
+                      key={agent.tokenId.toString()}
+                      className={`cursor-pointer transition-all ${selectedParentB?.tokenId.eq(agent.tokenId)
                         ? 'ring-2 ring-green-500'
                         : 'hover:ring-1 hover:ring-gray-500'
-                    } ${!agent.canBreed ? 'opacity-50' : ''}`}
-                    onClick={() => agent.canBreed && setSelectedParentB(agent)}
-                  >
-                    <div className="bg-gray-800 rounded-lg p-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-white font-bold">
-                          #{agent.tokenId.toString()}
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="text-white font-medium">{agent.name}</h3>
-                          <p className="text-sm text-gray-400">
-                            Breeds: {agent.breedingCount}/100 •
-                            {agent.canBreed ? ' Ready' : ` Cooldown: ${formatCooldown(agent.cooldownRemaining)}`}
-                          </p>
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {agent.traits.slice(0,3).map((trait,i) => (
-                              <span key={i} className="px-2 py-1 bg-gray-700 text-xs rounded">{trait}</span>
-                            ))}
-                            {agent.traits.length > 3 && (
-                              <span className="px-2 py-1 bg-gray-700 text-xs rounded">
-                                +{agent.traits.length - 3} more
-                              </span>
-                            )}
+                        } ${!agent.canBreed ? 'opacity-50' : ''}`}
+                      onClick={() => agent.canBreed && setSelectedParentB(agent)}
+                    >
+                      <div className="bg-gray-800 rounded-lg p-4">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center text-white font-bold">
+                            #{agent.tokenId.toString()}
                           </div>
+                          <div className="flex-1">
+                            <h3 className="text-white font-medium">{agent.name}</h3>
+                            <p className="text-sm text-gray-400">
+                              Breeds: {agent.breedingCount}/100 •
+                              {agent.canBreed ? ' Ready' : ` Cooldown: ${formatCooldown(agent.cooldownRemaining)}`}
+                            </p>
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {agent.traits.slice(0, 3).map((trait, i) => (
+                                <span key={i} className="px-2 py-1 bg-gray-700 text-xs rounded">{trait}</span>
+                              ))}
+                              {agent.traits.length > 3 && (
+                                <span className="px-2 py-1 bg-gray-700 text-xs rounded">
+                                  +{agent.traits.length - 3} more
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {selectedParentB?.tokenId.eq(agent.tokenId) && <div className="text-green-400">✓</div>}
                         </div>
-                        {selectedParentB?.tokenId.eq(agent.tokenId) && <div className="text-green-400">✓</div>}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
           </div>

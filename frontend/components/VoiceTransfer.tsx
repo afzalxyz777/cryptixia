@@ -110,8 +110,17 @@ export default function VoiceTransfer() {
 
             const data = await response.json();
             console.log('Server response:', data); // Debugging
+            console.log('Raw transcript:', transcript);
+            console.log('Server response data:', data);
+
+            // FIX: The intent is returned directly, not nested under data.intent
             const intent: ParsedIntent = data.intent;
+
             console.log('Parsed intent:', intent); // Debugging
+            if (!intent || !intent.action) {
+                console.error('Invalid intent response:', data);
+                throw new Error('Server returned invalid intent data');
+            }
 
             setParsedIntent(intent);
             setStatus(`Understood: ${intent.naturalLanguageSummary}`);
@@ -160,6 +169,8 @@ export default function VoiceTransfer() {
             setError(err.message || 'Failed to process voice command');
         }
     };
+
+
 
     const handleVoiceConfirmation = async (transcript: string) => {
         const lowerTranscript = transcript.toLowerCase().trim();

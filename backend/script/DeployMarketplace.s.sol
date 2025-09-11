@@ -7,8 +7,8 @@ import "../contracts/AgentNFT.sol";
 
 contract DeployMarketplace is Script {
     function run() external {
-        // Get deployer private key from environment
-        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PK");
+        // Get deployer private key from environment (changed from DEPLOYER_PK to PRIVATE_KEY)
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
         // Get AgentNFT address from environment (should be deployed first)
         address agentNFTAddress = vm.envAddress("AGENT_NFT_ADDRESS");
@@ -28,7 +28,10 @@ contract DeployMarketplace is Script {
         console.log("Network:", block.chainid);
 
         // Save to file for frontend
-        string memory envLine = string.concat("NEXT_PUBLIC_MARKETPLACE_ADDRESS=", vm.toString(address(marketplace)));
+        string memory envLine = string.concat(
+            "NEXT_PUBLIC_MARKETPLACE_ADDRESS=",
+            vm.toString(address(marketplace))
+        );
         vm.writeFile("frontend/.env.marketplace", envLine);
         console.log("Saved address to frontend/.env.marketplace");
     }
@@ -37,7 +40,7 @@ contract DeployMarketplace is Script {
 // Alternative script that deploys both AgentNFT and Marketplace together
 contract DeployAll is Script {
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PK");
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
         vm.startBroadcast(deployerPrivateKey);
 

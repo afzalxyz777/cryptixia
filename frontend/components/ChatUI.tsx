@@ -51,12 +51,12 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
       });
 
       const result = await response.json();
-      
+
       if (!response.ok) {
         console.warn('Memory storage failed:', result.error);
         return false;
       }
-      
+
       console.log('Memory stored successfully:', result);
       return true;
     } catch (error) {
@@ -106,8 +106,11 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
         })
       });
 
+      // Replace lines 109-111 with:
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Server error:', response.status, errorText);
+        throw new Error(`Server responded with ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
@@ -274,7 +277,7 @@ export default function ChatUI({ agentId, agentName }: ChatUIProps) {
               isDisabled={isAgentTyping}
             />
           </div>
-          
+
           {/* Memory Status Indicator */}
           <div className="text-xs text-gray-400 flex items-center">
             <span className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1"></span>

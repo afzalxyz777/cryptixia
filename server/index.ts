@@ -1,14 +1,19 @@
+// server/index.ts - MODIFIED
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+
+// LOAD ENVIRONMENT VARIABLES FIRST
+dotenv.config({ path: ".env.local" });
+
+// NOW IMPORT THE ROUTES (they'll have access to env vars)
 import chatRoutes from "./api/chat";
 import huggingfaceRoutes from "./api/huggingface";
 import generateAvatarHandler from "./api/generateAvatar";
 import mixTraitsRoutes from "./api/mixTraits";
 import ttsRoutes from "./api/tts";
-import memoriesRoutes from "./api/memories"; // ADD THIS IMPORT
-
-dotenv.config({ path: ".env.local" });
+import memoriesRoutes from "./api/memories";
+import parseIntentRoutes from "./api/parseIntent";
 
 const app = express();
 const PORT = parseInt(process.env.PORT || "3001", 10);
@@ -63,7 +68,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   const method = req.method;
   const url = req.url;
   const userAgent = req.get('User-Agent') || 'Unknown';
-  
+
   console.log(`${timestamp} - ${method} ${url} - ${userAgent}`);
   next();
 });
@@ -82,7 +87,8 @@ app.get("/", (req: Request, res: Response) => {
       avatar: "/api/generateAvatar",
       mixTraits: "/api/mixTraits",
       huggingface: "/api/huggingface",
-      memories: "/api/memories" // ADD THIS ENDPOINT
+      memories: "/api/memories",
+      parseIntent: "/api/parseIntent"
     }
   });
 });
@@ -91,19 +97,19 @@ app.get("/", (req: Request, res: Response) => {
 app.post("/api/initAgentProfile", (req: Request, res: Response) => {
   try {
     const { tokenId, agentData } = req.body;
-    
+
     console.log("initAgentProfile endpoint hit!", { tokenId, agentData });
-    
+
     // In a real implementation, you would save this to a database
     // For now, return a mock response
-    res.json({ 
+    res.json({
       memory_uri: `agent://${tokenId}/profile`,
       status: "success",
       timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error("initAgentProfile error:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to initialize agent profile",
       status: "error"
     });
@@ -114,13 +120,13 @@ app.post("/api/initAgentProfile", (req: Request, res: Response) => {
 app.post("/api/pinMetadata", (req: Request, res: Response) => {
   try {
     const { metadata, tokenId } = req.body;
-    
+
     console.log("pinMetadata endpoint hit!", { tokenId, metadataKeys: Object.keys(metadata || {}) });
-    
+
     // In a real implementation, you would pin this to IPFS
     // For now, return a mock response
     const mockCID = `QmTest${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
-    
+
     res.json({
       cid: mockCID,
       status: "success",
@@ -129,7 +135,7 @@ app.post("/api/pinMetadata", (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("pinMetadata error:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to pin metadata",
       status: "error"
     });
@@ -140,26 +146,26 @@ app.post("/api/pinMetadata", (req: Request, res: Response) => {
 app.post('/api/chat-with-tts', async (req: Request, res: Response) => {
   try {
     const { message, sessionId = 'default', tokenId, agentId, ttsConfig }: RequestBody = req.body;
-    
+
     // Validate required fields
     if (!message || typeof message !== 'string') {
-      return res.status(400).json({ 
-        error: 'Message is required and must be a string' 
+      return res.status(400).json({
+        error: 'Message is required and must be a string'
       });
     }
 
     if (message.length > 2000) {
-      return res.status(400).json({ 
-        error: 'Message too long (max 2000 characters)' 
+      return res.status(400).json({
+        error: 'Message too long (max 2000 characters)'
       });
     }
 
     console.log(`💬 Chat request from session ${sessionId}: "${message.substring(0, 50)}..."`);
-    
+
     // Forward to existing chat API
     const chatResponse = await fetch(`http://${HOST}:${PORT}/api/chat`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         'User-Agent': 'Cryptixia-Server/1.0'
       },
@@ -175,7 +181,7 @@ app.post('/api/chat-with-tts', async (req: Request, res: Response) => {
 
     const chatData = (await chatResponse.json()) as ChatResponse;
     const responseText = chatData.response || chatData.message || String(chatData);
-    
+
     // Validate response text
     if (!responseText || typeof responseText !== 'string') {
       console.warn('Invalid response from chat API:', chatData);
@@ -183,15 +189,15 @@ app.post('/api/chat-with-tts', async (req: Request, res: Response) => {
         error: 'Invalid response from chat service'
       });
     }
-    
+
     // Generate TTS if requested and text is valid
     if (ttsConfig?.enabled && responseText.length > 0) {
       try {
         console.log(`🎤 Generating TTS for: "${responseText.substring(0, 50)}..."`);
-        
+
         const ttsResponse = await fetch(`http://${HOST}:${PORT}/api/tts`, {
           method: 'POST',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
             'User-Agent': 'Cryptixia-Server/1.0'
           },
@@ -206,7 +212,7 @@ app.post('/api/chat-with-tts', async (req: Request, res: Response) => {
 
         if (ttsResponse.ok) {
           const contentType = ttsResponse.headers.get('content-type');
-          
+
           if (contentType?.includes('audio')) {
             // TTS audio generated successfully
             const audioBuffer = await ttsResponse.arrayBuffer();
@@ -215,9 +221,9 @@ app.post('/api/chat-with-tts', async (req: Request, res: Response) => {
               data: Array.from(new Uint8Array(audioBuffer)),
               contentType: 'audio/wav'
             };
-            
+
             console.log(`✅ TTS audio generated: ${audioBuffer.byteLength} bytes`);
-            
+
             return res.json({
               ...chatData,
               response: responseText,
@@ -253,14 +259,14 @@ app.post('/api/chat-with-tts', async (req: Request, res: Response) => {
         response: responseText
       });
     }
-    
+
   } catch (error) {
     console.error('💬 Chat with TTS error:', error);
-    
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const statusCode = errorMessage.includes('timeout') ? 408 : 500;
-    
-    res.status(statusCode).json({ 
+
+    res.status(statusCode).json({
       error: 'Chat generation failed',
       details: errorMessage,
       timestamp: new Date().toISOString()
@@ -272,8 +278,9 @@ app.post('/api/chat-with-tts', async (req: Request, res: Response) => {
 app.use("/api/chat", chatRoutes);
 app.use("/api/huggingface", huggingfaceRoutes);
 app.use("/api/mixTraits", mixTraitsRoutes);
-app.use("/api", ttsRoutes); // Mount TTS routes at /api level
-app.use("/api/memories", memoriesRoutes); // ADD THIS ROUTE MOUNT
+app.use("/api/parseIntent", parseIntentRoutes);
+app.use("/api", ttsRoutes);
+app.use("/api/memories", memoriesRoutes);
 app.get("/api/generateAvatar", generateAvatarHandler);
 
 // NFT metadata endpoint
@@ -282,12 +289,12 @@ import { loadChildren } from "./api/storage";
 app.get("/metadata/:id.json", async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
+
     // Validate token ID
     if (!id || typeof id !== 'string') {
       return res.status(400).json({ error: "Invalid token ID" });
     }
-    
+
     console.log(`📄 Metadata requested for token ${id}`);
 
     const baseUrl = `http://${HOST}:${PORT}`;
@@ -342,7 +349,7 @@ app.get("/metadata/:id.json", async (req: Request, res: Response) => {
     res.json(defaultMetadata);
   } catch (err) {
     console.error("Metadata error:", err);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to load metadata",
       timestamp: new Date().toISOString()
     });
@@ -358,17 +365,17 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
     method: req.method,
     timestamp: new Date().toISOString()
   });
-  
-  res.status(500).json({ 
-  error: "Internal server error",
-  timestamp: new Date().toISOString()
+
+  res.status(500).json({
+    error: "Internal server error",
+    timestamp: new Date().toISOString()
   });
 });
 
 // 404 fallback middleware
 app.use((req: Request, res: Response) => {
   console.warn(`404 - Route not found: ${req.method} ${req.originalUrl}`);
-  
+
   res.status(404).json({
     success: false,
     error: "Endpoint not found",
@@ -383,7 +390,8 @@ app.use((req: Request, res: Response) => {
       avatar: "/api/generateAvatar",
       mixTraits: "/api/mixTraits",
       huggingface: "/api/huggingface",
-      memories: "/api/memories", // ADD THIS ENDPOINT
+      memories: "/api/memories",
+      parseIntent: "/api/parseIntent",
       metadata: "/metadata/:id.json"
     }
   });
@@ -399,7 +407,8 @@ const server = app.listen(PORT, HOST, () => {
   console.log(`🎨 Avatar API available at http://${HOST}:${PORT}/api/generateAvatar`);
   console.log(`🧬 MixTraits API available at http://${HOST}:${PORT}/api/mixTraits`);
   console.log(`🤖 HuggingFace API available at http://${HOST}:${PORT}/api/huggingface`);
-  console.log(`🧠 Memories API available at http://${HOST}:${PORT}/api/memories`); // ADD THIS LOG
+  console.log(`🧠 Memories API available at http://${HOST}:${PORT}/api/memories`);
+  console.log(`🗣️ ParseIntent API available at http://${HOST}:${PORT}/api/parseIntent`);
   console.log(`📄 Metadata API available at http://${HOST}:${PORT}/metadata/:id.json`);
   console.log(`✅ Server ready for connections`);
 });
@@ -407,17 +416,17 @@ const server = app.listen(PORT, HOST, () => {
 // Graceful shutdown handling
 const gracefulShutdown = (signal: string) => {
   console.log(`\n🛑 Received ${signal}, shutting down gracefully...`);
-  
+
   server.close((err) => {
     if (err) {
       console.error('❌ Error during server shutdown:', err);
       process.exit(1);
     }
-    
+
     console.log('✅ Server closed successfully');
     process.exit(0);
   });
-  
+
   // Force close after 10 seconds
   setTimeout(() => {
     console.error('❌ Forced shutdown after timeout');
@@ -428,7 +437,7 @@ const gracefulShutdown = (signal: string) => {
 // Handle server errors
 server.on("error", (err: NodeJS.ErrnoException) => {
   console.error("❌ Server error:", err);
-  
+
   if (err.code === "EADDRINUSE") {
     console.error(`❌ Port ${PORT} is already in use. Please choose a different port.`);
     process.exit(1);

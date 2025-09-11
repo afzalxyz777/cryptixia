@@ -43,11 +43,11 @@ function MintFormClient() {
   const [step, setStep] = useState(1);
   const [tokenURI, setTokenURI] = useState('');
 
-  // Contract write hook
+  // Contract write hook - FIXED: Added proper ABI validation
   const { data: txData, write: mintNFT, isLoading: isMintLoading, error: mintError } = useContractWrite({
     mode: 'recklesslyUnprepared',
     address: CONTRACT_ADDRESS as `0x${string}`,
-    abi: CONTRACT_ABI,
+    abi: CONTRACT_ABI || [], // FIXED: Provide fallback empty array
     functionName: 'publicMint',
   });
 
@@ -65,12 +65,13 @@ function MintFormClient() {
     console.log('Environment URL:', process.env.NEXT_PUBLIC_SERVER_URL);
 
     if (!isConnected || !address) {
-      setStatus('❌ Please connect your wallet first');
+      setStatus('⚠️ Please connect your wallet first');
       return;
     }
 
-    if (!isConnected || !address) {
-      setStatus('❌ Please connect your wallet first');
+    // FIXED: Added ABI validation
+    if (!CONTRACT_ABI || CONTRACT_ABI.length === 0) {
+      setStatus('❌ Contract ABI not loaded. Check contract configuration.');
       return;
     }
 
