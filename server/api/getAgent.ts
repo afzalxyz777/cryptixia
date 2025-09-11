@@ -1,12 +1,20 @@
 // server/api/getAgent.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 
+interface AgentMetadata {
+  name?: string;
+  personality?: string;
+  traits?: Record<string, any>;
+  avatar?: string;
+}
+
 // Example function to fetch metadata from Pinata/IPFS
-const fetchFromIPFS = async (cid: string) => {
+const fetchFromIPFS = async (cid: string): Promise<AgentMetadata> => {
   const res = await fetch(`https://gateway.pinata.cloud/ipfs/${cid}`);
   if (!res.ok) throw new Error("Failed to fetch IPFS metadata");
-  return res.json();
+  return (await res.json()) as AgentMetadata;
 };
+
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { id } = req.query;
