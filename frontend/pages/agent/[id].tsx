@@ -5,7 +5,7 @@ import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../../lib/contract';
 import AgentCard from '../../components/AgentCard';
 import ChatUI from '../../components/chat';
 import MemoriesList from '../../components/MemoriesList';
-import DeFiAgent from '../../components/DefiAgent';
+import DeFiAgent from '../../components/DeFiAgent';
 
 // Add BigInt serialization handler at the top
 if (typeof window !== 'undefined') {

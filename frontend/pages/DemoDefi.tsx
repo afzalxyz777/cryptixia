@@ -1,4 +1,4 @@
-import DeFiAgent from '../components/DefiAgent';
+import DeFiAgent from '../components/DeFiAgent';
 
 export default function DeFiDemo() {
     return (
