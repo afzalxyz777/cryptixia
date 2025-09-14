@@ -1,0 +1,1 @@
+There's an authentication issue with my API. Please check the GROQ_API_KEY configuration.

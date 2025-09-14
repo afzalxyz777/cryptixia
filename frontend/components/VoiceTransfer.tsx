@@ -25,20 +25,21 @@ interface ConfirmationData {
 const validateAndNormalizeAddress = (address: string): string => {
     if (!address) throw new Error('No address provided');
 
-    // Remove any file path characters or invalid prefixes
-    const cleanAddress = address.replace(/[^a-zA-Z0-9]/g, '');
+    // Clean the address - remove any non-alphanumeric characters except 'x' (for 0x prefix)
+    const cleanAddress = address.replace(/[^a-zA-Z0-9x]/g, '');
 
     // Check if it's already a valid Ethereum-style address
     if (utils.isAddress(cleanAddress)) {
-        return utils.getAddress(cleanAddress); // Normalizes to checksum format
+        return utils.getAddress(cleanAddress);
     }
 
-    // Use valid test addresses (these are standard testnet addresses)
+    // Use valid test addresses
     const mockAddresses: { [key: string]: string } = {
-        'abc': '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', // Valid test address
-        'bob': '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', // Valid test address
-        'alice': '0x90F79bf6EB2c4f870365E785982E1f101E93b906', // Valid test address
-        'test': '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', // Valid test address
+        'abc': '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        'avx': '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC', // Added avx
+        'bob': '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
+        'alice': '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
+        'test': '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',
     };
 
     const lowercaseAddress = address.toLowerCase();

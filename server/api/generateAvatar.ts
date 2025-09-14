@@ -1,54 +1,81 @@
-// server/api/generateAvatar.ts - Using dynamic imports
-import { Request, Response } from "express";
-import sharp from "sharp";
-import { loadChildren } from "./storage";
+// pages/api/generateAvatar.ts
+import { NextApiRequest, NextApiResponse } from 'next'
 
-export default async function generateAvatarHandler(req: Request, res: Response) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end()
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
   try {
-    const tokenId = String(req.query.tokenId ?? req.query.id ?? "anon");
-    const size = Number(req.query.size ?? 128);
-    const format = String(req.query.format ?? "svg"); // svg or png
+    const { templateId, traits, seed } = req.body
 
-    let seed = String(req.query.seed ?? "default");
+    if (!templateId || !seed) {
+      return res.status(400).json({
+        error: 'Missing required fields: templateId and seed are required'
+      })
+    }
 
-    // If it's a child token, use child data for unique avatar
-    if (tokenId.startsWith("child_")) {
-      try {
-        const children = await loadChildren();
-        const child = children[tokenId];
-        if (child && typeof child === "object") {
-          const traitValues = Object.values(child).map((v) => String(v));
-          seed = `${tokenId}-${traitValues.join("-")}`;
+    console.log('🎨 Generating avatar for template:', templateId, 'seed:', seed)
+
+    // Try to use your Express server first
+    try {
+      const response = await fetch('http://localhost:3001/api/generateAvatar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Cryptixia-NextJS/1.0'
+        },
+        body: JSON.stringify({ templateId, traits, seed }),
+        signal: AbortSignal.timeout(10000) // 10 second timeout
+      })
+
+      if (response.ok) {
+        const contentType = response.headers.get('content-type')
+
+        // Check if it's JSON response
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json()
+          console.log('✅ Express server JSON response:', data)
+          return res.json(data)
+        } else {
+          console.log('⚠️ Express server returned non-JSON, using fallback')
         }
-      } catch (err) {
-        console.warn("Could not load children data:", err);
-        seed = tokenId;
+      } else {
+        console.log('❌ Express server error:', response.status, response.statusText)
       }
+    } catch (expressError) {
+      console.log('⚠️ Express server not available, using fallback avatar:', expressError instanceof Error ? expressError.message : 'Unknown error')
     }
 
-    // Dynamic import for ES modules
-    const { createAvatar } = await import("@dicebear/core");
-    const { bottts } = await import("@dicebear/collection");
+    // Fallback: Generate avatar URL using DiceBear API
+    const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${templateId}-${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9&randomizeIds=true`
 
-    // Create the avatar SVG
-    const svg = createAvatar(bottts, { seed, size }).toString();
+    console.log('🔄 Using fallback avatar URL:', avatarUrl)
 
-    // Set CORS headers
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.json({
+      avatarUrl,
+      status: 'success',
+      templateId,
+      seed,
+      source: 'fallback',
+      timestamp: new Date().toISOString()
+    })
 
-    // Return PNG if requested
-    if (format === "png") {
-      const png = await sharp(Buffer.from(svg)).png().toBuffer();
-      res.setHeader("Content-Type", "image/png");
-      return res.status(200).send(png);
-    }
-
-    // Default: return SVG
-    res.setHeader("Content-Type", "image/svg+xml; charset=utf-8");
-    res.status(200).send(svg);
-    
-  } catch (err) {
-    console.error("generateAvatar error:", err);
-    res.status(500).json({ error: "Avatar generation failed" });
+  } catch (error) {
+    console.error('❌ Avatar generation error:', error)
+    res.status(500).json({
+      error: 'Failed to generate avatar',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    })
   }
 }

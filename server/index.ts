@@ -1,4 +1,4 @@
-// server/index.ts - MODIFIED
+// server/index.ts - FIXED VERSION
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -9,7 +9,6 @@ dotenv.config({ path: ".env.local" });
 // NOW IMPORT THE ROUTES (they'll have access to env vars)
 import chatRoutes from "./api/chat";
 import huggingfaceRoutes from "./api/huggingface";
-import generateAvatarHandler from "./api/generateAvatar";
 import mixTraitsRoutes from "./api/mixTraits";
 import ttsRoutes from "./api/tts";
 import memoriesRoutes from "./api/memories";
@@ -281,39 +280,117 @@ app.use("/api/mixTraits", mixTraitsRoutes);
 app.use("/api/parseIntent", parseIntentRoutes);
 app.use("/api", ttsRoutes);
 app.use("/api/memories", memoriesRoutes);
+
+// Avatar generation endpoint (supports both GET and POST)
+const generateAvatarHandler = async (req: Request, res: Response) => {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  try {
+    // Handle both GET and POST requests
+    const params = req.method === 'GET' ? req.query : req.body;
+    const { templateId, traits, seed, tokenId, format = 'svg', size = '256' } = params;
+
+    // Use tokenId if provided, otherwise use templateId and seed
+    const avatarSeed = tokenId || `${templateId || 'default'}-${seed || Date.now()}`;
+
+    if (!avatarSeed) {
+      return res.status(400).json({
+        error: 'Missing required parameter: either tokenId or (templateId and seed) are required'
+      });
+    }
+
+    console.log(`🎨 Generating avatar for seed: ${avatarSeed}, format: ${format}, size: ${size}`);
+
+    // Generate avatar URL using DiceBear API
+    const avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${avatarSeed}&size=${size}&backgroundColor=b6e3f4,c0aede,d1d4f9&randomizeIds=true`;
+
+    console.log(`✅ Generated avatar URL: ${avatarUrl}`);
+
+    // Return avatar metadata
+    const response = {
+      avatarUrl,
+      status: 'success',
+      templateId: templateId || 'auto',
+      seed: avatarSeed,
+      format,
+      size,
+      source: 'dicebear',
+      timestamp: new Date().toISOString()
+    };
+
+    res.json(response);
+
+  } catch (error) {
+    console.error('❌ Avatar generation error:', error);
+
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    res.status(500).json({
+      error: 'Failed to generate avatar',
+      details: errorMessage,
+      timestamp: new Date().toISOString(),
+      fallback_url: `https://api.dicebear.com/7.x/bottts/svg?seed=fallback-${Date.now()}`
+    });
+  }
+};
+
 app.get("/api/generateAvatar", generateAvatarHandler);
+app.post("/api/generateAvatar", generateAvatarHandler);
 
 // NFT metadata endpoint
 import { loadChildren } from "./api/storage";
 
-app.get("/metadata/:id.json", async (req: Request, res: Response) => {
+// NEW: Handle metadata requests with full URLs (fix for 404 errors)
+app.get("/metadata/*", async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const fullPath = req.params[0]; // Get the entire path after /metadata/
 
-    // Validate token ID
-    if (!id || typeof id !== 'string') {
-      return res.status(400).json({ error: "Invalid token ID" });
+    console.log(`📄 Metadata requested: ${fullPath}`);
+
+    // Extract token ID from various URL formats
+    let tokenId = "1"; // default
+
+    // Handle different URL patterns that might come from the frontend
+    if (fullPath.includes('QmTest')) {
+      // Extract from QmTest URLs: https://gateway.pinata.cloud/ipfs/QmTest123456
+      const match = fullPath.match(/QmTest(\d+)/);
+      tokenId = match ? match[1] : fullPath.replace(/\D/g, '') || '1';
+    } else if (fullPath.endsWith('.json')) {
+      // Handle /metadata/something.json
+      tokenId = fullPath.replace('.json', '').replace(/\D/g, '') || '1';
+    } else {
+      // Extract numbers from any other format
+      tokenId = fullPath.replace(/\D/g, '') || '1';
     }
 
-    console.log(`📄 Metadata requested for token ${id}`);
+    // Ensure tokenId is valid
+    tokenId = tokenId || '1';
+    console.log(`📄 Extracted token ID: ${tokenId}`);
 
     const baseUrl = `http://${HOST}:${PORT}`;
 
-    if (id.startsWith("child_")) {
+    if (tokenId.startsWith("child_")) {
       try {
         const children = await loadChildren();
-        const child = children[id];
+        const child = children[tokenId];
 
         if (!child) {
-          console.warn(`Child token ${id} not found`);
+          console.warn(`Child token ${tokenId} not found`);
           return res.status(404).json({ error: "Child not found" });
         }
 
         const metadata = {
-          name: `Cryptixia Agent #${id}`,
+          name: `Cryptixia Agent #${tokenId}`,
           description: "An AI agent NFT with unique personality and capabilities from the Cryptixia ecosystem",
-          image: `${baseUrl}/api/generateAvatar?tokenId=${id}&format=png&size=512`,
-          external_url: `${baseUrl}/agent/${id}`,
+          image: `${baseUrl}/api/generateAvatar?tokenId=${tokenId}&format=png&size=512`,
+          external_url: `${baseUrl}/agent/${tokenId}`,
           attributes: Object.entries(child)
             .filter(([key, value]) => value !== null && value !== undefined)
             .map(([trait_type, value]) => ({
@@ -332,10 +409,10 @@ app.get("/metadata/:id.json", async (req: Request, res: Response) => {
 
     // Default metadata for non-child tokens
     const defaultMetadata = {
-      name: `Cryptixia Agent #${id}`,
+      name: `Cryptixia Agent #${tokenId}`,
       description: "An AI agent NFT with unique personality and capabilities from the Cryptixia ecosystem",
-      image: `${baseUrl}/api/generateAvatar?tokenId=${id}&format=png&size=512`,
-      external_url: `${baseUrl}/agent/${id}`,
+      image: `${baseUrl}/api/generateAvatar?tokenId=${tokenId}&format=png&size=512`,
+      external_url: `${baseUrl}/agent/${tokenId}`,
       attributes: [
         { trait_type: "Agent Type", value: "Conversational AI" },
         { trait_type: "Personality", value: "Adaptive" },
@@ -392,7 +469,7 @@ app.use((req: Request, res: Response) => {
       huggingface: "/api/huggingface",
       memories: "/api/memories",
       parseIntent: "/api/parseIntent",
-      metadata: "/metadata/:id.json"
+      metadata: "/metadata/*"
     }
   });
 });
@@ -409,7 +486,7 @@ const server = app.listen(PORT, HOST, () => {
   console.log(`🤖 HuggingFace API available at http://${HOST}:${PORT}/api/huggingface`);
   console.log(`🧠 Memories API available at http://${HOST}:${PORT}/api/memories`);
   console.log(`🗣️ ParseIntent API available at http://${HOST}:${PORT}/api/parseIntent`);
-  console.log(`📄 Metadata API available at http://${HOST}:${PORT}/metadata/:id.json`);
+  console.log(`📄 Metadata API available at http://${HOST}:${PORT}/metadata/*`);
   console.log(`✅ Server ready for connections`);
 });
 

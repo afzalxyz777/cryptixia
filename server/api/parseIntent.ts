@@ -1,6 +1,6 @@
 // server/api/parseIntent.ts - UPDATED VERSION
 import express, { Request, Response } from "express";
-import { generateChatResponse } from "../api/huggingface";
+import { generateChatResponse } from "./huggingface";
 
 const router = express.Router();
 
@@ -63,11 +63,13 @@ function manualParseIntent(input: string): ParsedIntent {
 
     // Send/transfer patterns
     // Add more patterns to manualParseIntent function
+    // Update the sendPatterns array to be more specific
     const sendPatterns = [
         /(?:send|transfer|pay)\s+(\d+\.?\d*)\s*(?:avax|avalanche)?\s+to\s+(\w+)/i,
         /(?:send|transfer|pay)\s+(\d+\.?\d*)\s+to\s+(\w+)/i,
         /(?:send|transfer|pay)\s+(\d+\.?\d*)\s*(?:avax|avalanche)?\s+for\s+(\w+)/i,
-        /(?:send|transfer|pay)\s+(\d+\.?\d*)\s+(\w+)/i, // "send 0.01 abc"
+        /(?:send|transfer|pay)\s+(\d+\.?\d*)\s+(\w+)(?:\s+avax|\s+avalanche)?/i, // Modified this line
+        /(?:send|transfer|pay)\s+(\d+\.?\d*)\s*(?:avax|avalanche)\s+(\w+)/i, // Added this pattern
     ];
 
     for (const pattern of sendPatterns) {

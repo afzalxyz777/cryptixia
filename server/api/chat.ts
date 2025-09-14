@@ -31,10 +31,10 @@ router.post("/", chatRateLimit, async (req: Request, res: Response) => {
       try {
         console.log(`🧠 Searching memories for agent: ${tokenId}, query: "${message}"`);
         const relevantMemories = await searchMemories(tokenId, message, 3); // Get top 3 relevant memories
-        
+
         if (relevantMemories.length > 0) {
           console.log(`📚 Found ${relevantMemories.length} relevant memories`);
-          memoryContext = relevantMemories.map((memory: any, index: number) => 
+          memoryContext = relevantMemories.map((memory: any, index: number) =>
             `Memory ${index + 1}: ${memory.metadata?.text} (relevance: ${(memory.score * 100).toFixed(1)}%)`
           );
         } else {
@@ -68,9 +68,9 @@ router.post("/", chatRateLimit, async (req: Request, res: Response) => {
 
     // Handle rate limiting (should be caught by middleware, but backup check)
     if (errorMessage.toLowerCase().includes("rate limit") || errorMessage.toLowerCase().includes("too many requests")) {
-      return res.status(429).json({ 
+      return res.status(429).json({
         error: "I'm getting too many requests right now. Please try again in a moment!",
-        success: false 
+        success: false
       });
     }
 
@@ -80,9 +80,9 @@ router.post("/", chatRateLimit, async (req: Request, res: Response) => {
     }
 
     // Generic fallback error
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: "Failed to generate response",
-      success: false 
+      success: false
     });
   }
 });
